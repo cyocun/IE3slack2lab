@@ -72,6 +72,7 @@ export class GitHubClient {
     const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${path}`;
     
     // 既存ファイルが存在するかチェック（更新時はSHA値が必要）
+    // リトライの場合は必ず最新のファイル情報を取得
     const existingFile = await this.getFile(path);
     
     const body: GitHubUploadRequest = {
@@ -83,6 +84,9 @@ export class GitHubClient {
     // 既存ファイルがある場合はSHA値を設定
     if (existingFile) {
       body.sha = existingFile.sha;
+      console.log(`Using SHA for file update: ${existingFile.sha}`);
+    } else {
+      console.log('No existing file found, creating new file');
     }
 
     const response = await fetch(url, {
@@ -149,11 +153,29 @@ export class GitHubClient {
   async getJSON(path: string): Promise<JSONData> {
     const file = await this.getFile(path);
     if (!file) {
+      console.log('JSON file not found, returning empty array');
       return [];
     }
     
-    const content = atob(file.content);
-    return JSON.parse(content);
+    try {
+      const content = atob(file.content);
+      console.log('JSON file content length:', content.length);
+      console.log('JSON file content preview:', content.substring(0, 200));
+      
+      if (!content.trim()) {
+        console.log('Empty JSON file, returning empty array');
+        return [];
+      }
+      
+      const parsed = JSON.parse(content);
+      console.log('Successfully parsed JSON, item count:', Array.isArray(parsed) ? parsed.length : 'not an array');
+      return parsed;
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Raw file content length:', file.content.length);
+      console.error('Decoded content length:', atob(file.content).length);
+      throw new Error(`JSONファイルの解析に失敗しました: ${(parseError as Error).message}`);
+    }
   }
 
   /**
@@ -168,6 +190,7 @@ export class GitHubClient {
     const encoder = new TextEncoder();
     const buffer = encoder.encode(content);
     
+    // リトライなし、即座に実行
     return this.uploadFile(path, buffer.buffer, message);
   }
 }

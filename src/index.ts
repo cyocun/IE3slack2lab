@@ -29,6 +29,9 @@ const worker: ExportedHandler<Environment> = {
   }
 };
 
+// イベントIDキャッシュ（メモリ内で重複チェック）
+const processedEvents = new Set<string>();
+
 /**
  * Slackイベントの処理
  * @param request HTTPリクエスト
@@ -82,7 +85,26 @@ async function handleSlackEvent(request: Request, env: Environment): Promise<Res
 
   // イベント処理
   if ('event' in body) {
-    console.log(`Event type: ${body.event.type}, Subtype: ${body.event.subtype || 'none'}`);
+    const eventId = body.event_id || body.event.ts;
+    console.log(`Event ID: ${eventId}, Event type: ${body.event.type}, Subtype: ${body.event.subtype || 'none'}`);
+    
+    // イベント重複チェック
+    if (processedEvents.has(eventId)) {
+      console.log(`⚠️ Duplicate event detected: ${eventId} - skipping processing`);
+      return new Response('OK', { status: 200 });
+    }
+    
+    // イベントIDをキャッシュに追加
+    processedEvents.add(eventId);
+    
+    // キャッシュサイズ制限（メモリ使用量制御）
+    if (processedEvents.size > 1000) {
+      const firstItem = processedEvents.values().next().value;
+      if (firstItem) {
+        processedEvents.delete(firstItem);
+      }
+    }
+    
     console.log('Event details:', JSON.stringify(body.event, null, 2));
     
     const slackClient = new SlackClient(env.SLACK_BOT_TOKEN);

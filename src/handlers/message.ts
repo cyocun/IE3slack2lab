@@ -27,6 +27,12 @@ export async function handleMessage(
 ): Promise<void> {
   const { text, files, channel, user, thread_ts, ts } = event;
 
+  // ボットからのメッセージは処理しない
+  if ('bot_id' in event || 'app_id' in event) {
+    console.log('Ignoring bot message');
+    return;
+  }
+
   // スレッドでの返信の場合はスレッド操作として処理
   if (thread_ts) {
     await handleThreadOperation(event, slackClient, githubClient, env);
