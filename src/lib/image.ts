@@ -1,38 +1,25 @@
-import imageCompression from 'browser-image-compression';
 import type { ImagePathResult } from '../types/index.js';
 
 /**
- * browser-image-compressionを使用して画像をリサイズ・圧縮
+ * シンプルな画像処理（Cloudflare Workers対応）
  * @param imageBuffer 元画像のバイナリデータ
- * @param maxWidth 最大幅（デフォルト: 1200px）
- * @returns リサイズ済み画像のバイナリデータ
+ * @param maxWidth 最大幅（現時点では使用せず）
+ * @returns 元画像のバイナリデータ（サイズ制限のみ実施）
  */
 export async function resizeImage(imageBuffer: ArrayBuffer, maxWidth = 1200): Promise<ArrayBuffer> {
   console.log(`Processing image: ${Math.round(imageBuffer.byteLength / 1024)}KB`);
   
-  // ArrayBufferをFileオブジェクトに変換
-  const imageBlob = new Blob([imageBuffer], { type: 'image/jpeg' });
-  const imageFile = new File([imageBlob], 'image.jpg', { type: 'image/jpeg' });
+  // ファイルサイズ制限をチェック（5MBを超える場合はエラー）
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (imageBuffer.byteLength > maxSize) {
+    throw new Error(`画像サイズが大きすぎます: ${Math.round(imageBuffer.byteLength / 1024 / 1024)}MB (上限: 5MB)`);
+  }
   
-  // 圧縮オプションを設定
-  const options = {
-    maxSizeMB: 2, // 最大2MBに圧縮
-    maxWidthOrHeight: maxWidth, // 最大幅または高さ
-    useWebWorker: false, // Cloudflare WorkersではWeb Workerは使用しない
-    quality: 0.85, // JPEG品質 (0-1)
-    initialQuality: 0.85
-  };
+  // 現時点では元画像をそのまま使用
+  // 将来的にリサイズ機能を追加する場合は、Cloudflare Image Resizingサービスを使用
+  console.log('Using original image (no compression applied)');
   
-  // 画像を圧縮・リサイズ（エラー時は例外をスロー）
-  const compressedFile = await imageCompression(imageFile, options);
-  
-  // FileオブジェクトをArrayBufferに変換
-  const compressedArrayBuffer = await compressedFile.arrayBuffer();
-  
-  const compressionRatio = Math.round((compressedArrayBuffer.byteLength / imageBuffer.byteLength) * 100);
-  console.log(`Image compressed: ${Math.round(compressedArrayBuffer.byteLength / 1024)}KB (${compressionRatio}% of original)`);
-  
-  return compressedArrayBuffer;
+  return imageBuffer;
 }
 
 /**

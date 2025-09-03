@@ -24,18 +24,38 @@ export class GitHubClient {
    */
   async getFile(path: string): Promise<GitHubFile | null> {
     const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${path}`;
+    
+    console.log('GitHub API Request:', {
+      url,
+      owner: this.owner,
+      repo: this.repo,
+      path,
+      tokenLength: this.token?.length || 0
+    });
+    
     const response = await fetch(url, {
       headers: {
         'Authorization': `token ${this.token}`,
-        'Accept': 'application/vnd.github.v3+json'
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'slack-to-github-image-uploader/1.0.0'
       }
     });
 
     if (!response.ok) {
+      const errorBody = await response.text();
+      console.error('GitHub API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorBody,
+        contentType: response.headers.get('content-type'),
+        rateLimit: response.headers.get('x-ratelimit-remaining'),
+        rateLimitReset: response.headers.get('x-ratelimit-reset')
+      });
+      
       if (response.status === 404) {
-        return null; // ファイルが存在しない
+        return null;
       }
-      throw new Error(`GitHub API error: ${response.status}`);
+      throw new Error(`GitHub API error: ${response.status} - ${errorBody}`);
     }
 
     return response.json();
@@ -70,7 +90,8 @@ export class GitHubClient {
       headers: {
         'Authorization': `token ${this.token}`,
         'Content-Type': 'application/json',
-        'Accept': 'application/vnd.github.v3+json'
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'slack-to-github-image-uploader/1.0.0'
       },
       body: JSON.stringify(body)
     });
@@ -102,7 +123,8 @@ export class GitHubClient {
       headers: {
         'Authorization': `token ${this.token}`,
         'Content-Type': 'application/json',
-        'Accept': 'application/vnd.github.v3+json'
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'slack-to-github-image-uploader/1.0.0'
       },
       body: JSON.stringify({
         message,
