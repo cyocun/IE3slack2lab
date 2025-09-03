@@ -1,348 +1,206 @@
-# Slack to GitHub 画像アップロードシステム仕様書
+# IE3 Slack to GitHub Lab Uploader - 現在の仕様書
 
-## 1. システム概要
+## 概要
 
-Slackから投稿された画像とメタデータを受け取り、画像を適切なサイズにリサイズしてGitHubリポジトリにアップロードし、JSONファイルを更新するシステム。
+SlackからGitHubリポジトリへの画像アップロードとメタデータ管理を行うCloudflare Workers アプリケーション。Slackに投稿された画像を自動的にGitHubにアップロードし、JSON形式でメタデータを管理する。
 
-## 2. システム構成
+## システム構成
 
-```
-[Slack App] → [Cloudflare Workers] → [GitHub API]
-                     ↓
-              [画像リサイズ処理]
-```
+### プラットフォーム
+- **実行環境**: Cloudflare Workers
+- **言語**: TypeScript
+- **パッケージマネージャー**: npm
 
-## 3. Slack連携仕様
-
-### 3.1 Slack App設定
-
-- **Event Subscriptions**: 
-  - `file_shared` - ファイル共有イベント
-  - `message` - メッセージイベント
-  
-- **OAuth Scopes**: 
-  - `files:read` - ファイル読み取り
-  - `channels:history` - チャンネル履歴読み取り
-  - `chat:write` - メッセージ送信（処理完了通知用）
-
-### 3.2 入力フォーマット
-
-#### 正しい投稿形式
-Slackでの投稿形式:
-```
-画像ファイル添付 + メッセージ本文:
-タイトル: [タイトル]
-日付: [YYYY-MM-DD]
-リンク: [URL]
-```
-
-#### フォーマットエラー時の自動返信
-投稿フォーマットが正しくない場合、以下の形式でエラーメッセージを返信:
-```
-❌ 投稿フォーマットが正しくありません。
-
-正しい形式:
-タイトル: [タイトル]
-日付: [YYYY-MM-DD]
-リンク: [URL]
-
-検出されたエラー:
-- [具体的なエラー内容]
-
-例:
-タイトル: 新商品リリース
-日付: 2024-01-15
-リンク: https://example.com
-```
-
-### 3.3 スレッド操作
-
-#### 削除機能
-- 投稿のスレッドに「delete」と入力すると、該当データを削除
-- 削除実行前に確認メッセージを返信
-- 削除完了後、完了メッセージを返信
-
-#### 更新機能
-投稿のスレッドで以下の更新が可能:
-- **タイトル更新**: `タイトル: [新しいタイトル]`
-- **日付更新**: `日付: [YYYY-MM-DD]`
-- **リンク更新**: `リンク: [新しいURL]`
-- **画像更新**: 新しい画像を添付
-
-複数項目の同時更新も可能:
-```
-タイトル: 更新後のタイトル
-日付: 2024-01-20
-[画像添付]
-```
-
-## 4. 画像処理仕様
-
-- **リサイズ**: 最大幅 1200px (アスペクト比維持)
-- **フォーマット**: JPEG (品質85%)
-- **ファイル名**: `{timestamp}_{original_name}.jpg`
-- **保存先**: 環境変数で指定可能なパス
-
-## 5. JSONデータ構造
-
+### 主要依存関係
 ```json
 {
-  "items": [
-    {
-      "id": "unique_id_timestamp",
-      "title": "投稿タイトル",
-      "date": "2024-01-15",
-      "link": "https://example.com",
-      "image": "path/to/image.jpg",
-      "metadata": {
-        "uploaded_at": "2024-01-15T10:30:00Z",
-        "updated_at": "2024-01-15T10:30:00Z",
-        "slack_user": "user_name",
-        "slack_channel": "channel_name",
-        "slack_thread_ts": "1234567890.123456",
-        "slack_message_ts": "1234567890.123456"
-      }
-    }
-  ],
-  "last_updated": "2024-01-15T10:30:00Z"
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240117.0",
+    "@types/node": "^20.11.5",
+    "prettier": "^3.2.4",
+    "typescript": "^5.3.3",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.33.2"
+  }
 }
 ```
 
-## 6. Cloudflare Workers実装
+## 機能仕様
 
-### 6.1 エンドポイント
+### 1. Slackメッセージ処理
 
-- `POST /slack/events` - Slackイベント受信
-- `POST /slack/commands` - Slashコマンド対応（オプション）
+#### 1.1 基本投稿処理
+- **エンドポイント**: `/slack/events`
+- **メソッド**: POST
+- **認証**: Slack署名検証
 
-### 6.2 環境変数/シークレット
-
+#### 1.2 対応メッセージ形式
 ```
-SLACK_BOT_TOKEN      # Slack Bot Token
-SLACK_SIGNING_SECRET # Slack署名検証用
-GITHUB_TOKEN         # GitHub Personal Access Token
-GITHUB_OWNER         # GitHubリポジトリオーナー
-GITHUB_REPO          # GitHubリポジトリ名
-GITHUB_BRANCH        # ブランチ名（デフォルト: main）
-IMAGE_PATH           # 画像保存先パス
-JSON_PATH            # JSONファイルパス
+title: [タイトル] (optional)
+date: YYYY/MM/DD (required)
+url: [URL] (optional)
 ```
 
-### 6.3 画像処理
+#### 1.3 画像処理
+- **対応形式**: 画像ファイル（詳細な形式は実装に依存）
+- **リサイズ処理**: 自動リサイズ機能有り
+- **保存先**: `mock-dir/public/images/YYYY/MM/` 形式
 
-Cloudflare Workersの画像リサイズAPI使用:
+### 2. GitHub統合
 
-```javascript
-const resizedImage = await fetch(imageUrl, {
-  cf: {
-    image: {
-      width: 1200,
-      quality: 85,
-      format: "jpeg"
-    }
+#### 2.1 ファイルアップロード
+- **API**: GitHub Contents API & Tree API
+- **同時アップロード**: 画像ファイル + JSON メタデータを1コミットで処理
+- **ブランチ**: `develop` （設定可能）
+
+#### 2.2 ファイル構成
+```
+mock-dir/
+├── public/
+│   └── images/
+│       └── YYYY/
+│           └── MM/
+│               └── [timestamp_filename]
+└── app/
+    └── data/
+        └── lab.json
+```
+
+### 3. データ構造
+
+#### 3.1 JSONメタデータ形式
+```json
+{
+  "id": 28,
+  "image": "/mock-dir/public/images/2025/09/1756924937876_20250702-2.jpg",
+  "title": "タイトル（optional）",
+  "datetime": "2025-04-01",
+  "link": "https://example.com（optional）",
+  "metadata": {
+    "uploaded_at": "2025-09-03T18:42:18.081Z",
+    "updated_at": "2025-09-03T18:42:18.081Z",
+    "slack_user": "U8QAVGL07",
+    "slack_channel": "C09CY145CFR",
+    "slack_thread_ts": "1756924936.200809",
+    "slack_message_ts": "1756924936.200809"
   }
-});
+}
 ```
 
-## 7. 処理フロー
+#### 3.2 配列管理
+- 新しいアイテムは配列の先頭に追加
+- IDは自動インクリメント
+- 時系列降順で管理
 
-### 7.1 Slackイベント受信
+### 4. スレッド機能
 
-#### メッセージパース処理
-```javascript
-const parseMessage = (text) => {
-  const title = text.match(/タイトル[：:]\s*(.+)/)?.[1]?.trim();
-  const date = text.match(/日付[：:]\s*(\d{4}-\d{2}-\d{2})/)?.[1]?.trim();
-  const link = text.match(/リンク[：:]\s*(.+)/)?.[1]?.trim();
-  
-  // バリデーション
-  const errors = [];
-  if (!title) errors.push('タイトルが未入力です');
-  if (!date) errors.push('日付が未入力です');
-  else if (!isValidDate(date)) errors.push('日付の形式が正しくありません (YYYY-MM-DD)');
-  if (!link) errors.push('リンクが未入力です');
-  else if (!isValidUrl(link)) errors.push('リンクの形式が正しくありません');
-  
-  return { title, date, link, errors };
-};
+#### 4.1 スレッド操作
+- **削除**: スレッドでの特定コマンドで既存アイテム削除可能
+- **更新**: スレッドでのメタデータ更新機能
 
-// スレッド操作の判定
-const parseThreadMessage = (text) => {
-  if (text.toLowerCase() === 'delete') {
-    return { action: 'delete' };
-  }
-  
-  const updates = {};
-  const title = text.match(/タイトル[：:]\s*(.+)/)?.[1]?.trim();
-  const date = text.match(/日付[：:]\s*(\d{4}-\d{2}-\d{2})/)?.[1]?.trim();
-  const link = text.match(/リンク[：:]\s*(.+)/)?.[1]?.trim();
-  
-  if (title) updates.title = title;
-  if (date) updates.date = date;
-  if (link) updates.link = link;
-  
-  if (Object.keys(updates).length > 0) {
-    return { action: 'update', updates };
-  }
-  
-  return null;
-};
-```
+### 5. エラーハンドリング
 
-### 7.2 画像取得・リサイズ
+#### 5.1 バリデーション
+- 画像添付必須チェック
+- 日付フォーマット検証
+- メッセージ形式検証
 
-```javascript
-// Slack APIから画像URL取得
-const fileInfo = await slack.files.info({ file: fileId });
+#### 5.2 エラー応答
+- フォーマットエラー時の詳細メッセージ
+- Slack上でのリアルタイムエラー通知
 
-// Cloudflare Image Resizingでリサイズ
-const resized = await fetch(fileInfo.url_private_download, {
-  headers: { 'Authorization': `Bearer ${SLACK_BOT_TOKEN}` },
-  cf: { image: { width: 1200, quality: 85 } }
-});
-```
+### 6. 文字エンコーディング対応
 
-### 7.3 GitHub アップロード
+#### 6.1 UTF-8/絵文字対応
+- JSON更新時の絵文字文字化け問題を解決
+- base64エンコード/デコード時のUTF-8適切処理
+- `encodeURIComponent/decodeURIComponent` + `escape/unescape` パターン使用
 
-```javascript
-const uploadToGitHub = async (path, content, message) => {
-  return await fetch(
-    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`,
-    {
-      method: 'PUT',
-      headers: {
-        'Authorization': `token ${GITHUB_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        message: message,
-        content: btoa(content),
-        branch: GITHUB_BRANCH
-      })
-    }
-  );
-};
+## 環境設定
 
-// 削除処理
-const deleteFromGitHub = async (path, sha) => {
-  return await fetch(
-    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`,
-    {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `token ${GITHUB_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        message: `Delete image: ${path}`,
-        sha: sha,
-        branch: GITHUB_BRANCH
-      })
-    }
-  );
-};
-```
-
-### 7.4 JSON更新
-
-```javascript
-// 既存JSON取得
-const getJSON = async () => {
-  const response = await fetch(
-    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${JSON_PATH}`
-  );
-  const data = await response.json();
-  return JSON.parse(atob(data.content));
-};
-
-// JSON更新
-const updateJSON = async (newItem) => {
-  const json = await getJSON();
-  // 新規アイテムを配列の先頭に追加
-  json.items.splice(0, 0, newItem);
-  json.last_updated = new Date().toISOString();
-  // GitHub APIで更新処理
-};
-```
-
-## 8. エラーハンドリング
-
-### 8.1 投稿時エラー
-- **フォーマットエラー**: 正しい形式を案内してスレッドに返信
-- **画像未添付エラー**: 画像の添付を促すメッセージを返信
-- **バリデーションエラー**: 具体的なエラー内容を明示して返信
-
-### 8.2 処理時エラー
-- **画像ダウンロード失敗時**: Slackに通知して処理中断
-- **リサイズ失敗時**: オリジナル画像を使用
-- **GitHub API失敗時**: リトライ (最大3回)
-- **JSON parse失敗時**: エラーログを出力して処理中断
-
-### 8.3 スレッド操作エラー
-- **削除対象が見つからない**: エラーメッセージを返信
-- **更新対象が見つからない**: エラーメッセージを返信
-- **更新内容が無効**: バリデーションエラーを返信
-
-## 9. セキュリティ考慮事項
-
-- Slack署名検証の実装
-- GitHub Token/Slack Tokenの安全な管理（Cloudflare Secrets使用）
-- CORS設定の適切な制限
-- リクエストレート制限の実装
-
-## 10. デプロイ手順
-
-### 10.1 Wrangler CLIインストール
-
-```bash
-npm install -g wrangler
-```
-
-### 10.2 プロジェクト作成
-
-```bash
-wrangler init slack-to-github
-```
-
-### 10.3 wrangler.toml設定
-
+### 環境変数 (wrangler.toml)
 ```toml
-name = "slack-to-github"
-main = "src/index.js"
-compatibility_date = "2024-01-15"
-
 [vars]
-IMAGE_PATH = "images/"
-JSON_PATH = "data.json"
+IMAGE_PATH = "mock-dir/public/images/"
+JSON_PATH = "mock-dir/app/data/lab.json"
+GITHUB_BRANCH = "develop"
 ```
 
-### 10.4 シークレット設定
-
+### シークレット設定
 ```bash
 wrangler secret put SLACK_BOT_TOKEN
 wrangler secret put SLACK_SIGNING_SECRET
 wrangler secret put GITHUB_TOKEN
+wrangler secret put GITHUB_OWNER
+wrangler secret put GITHUB_REPO
 ```
 
-### 10.5 デプロイ
+## コマンド
 
+### 開発・デプロイ
 ```bash
-wrangler deploy
+npm run dev          # ローカル開発
+npm run build        # TypeScriptビルド
+npm run deploy       # Cloudflareにデプロイ
+npm run typecheck    # 型チェック
+npm run format       # コード整形
+npm run test         # テスト実行
 ```
 
-## 11. 運用・保守
+### Slackコマンド
+- `/format`: 投稿フォーマットヘルプを表示
 
-### 11.1 ログ監視
+## アーキテクチャ
 
-- Cloudflare Workers Analytics でリクエスト監視
-- エラーログの定期確認
+### ファイル構成
+```
+src/
+├── index.ts              # メインエントリポイント
+├── handlers/
+│   ├── message.ts        # メッセージ処理
+│   └── thread.ts         # スレッド操作
+├── lib/
+│   ├── slack.ts          # Slack API客户端
+│   ├── github.ts         # GitHub API客户端
+│   └── image.ts          # 画像処理
+├── utils/
+│   └── parser.ts         # メッセージパース
+└── types/
+    └── index.ts          # 型定義
+```
 
-### 11.2 バックアップ
+### 処理フロー
+1. Slack Webhook受信
+2. 署名検証
+3. メッセージ/スレッド判定
+4. パース & バリデーション
+5. 画像ダウンロード & リサイズ
+6. GitHub同時アップロード（画像 + JSON）
+7. Slack応答
 
-- JSONファイルの定期バックアップ
-- 画像ファイルのバックアップ（オプション）
+## セキュリティ
 
-### 11.3 スケーリング
+- Slack署名検証による認証
+- GitHub Personal Access Token認証
+- 環境変数でのシークレット管理
+- ボットメッセージの除外処理
 
-- Cloudflare Workers の自動スケーリング機能を活用
-- 必要に応じてWorkers KVの利用検討
+## 制限事項
+
+- 1回の投稿につき1画像のみ対応
+- 画像形式制限有り（詳細は実装依存）
+- Cloudflare Workers実行時間制限内での処理
+- メモリベースの重複イベント防止（再起動でリセット）
+
+## 最近の修正
+
+### 絵文字対応改善 (2025-09-03)
+- JSON更新時の絵文字文字化け問題を修正
+- UTF-8エンコーディング/デコーディング処理を改善
+- base64変換時のUnicode文字適切処理を実装
+
+## ログ・モニタリング
+
+- Cloudflare Workers ログ有効化
+- `npx wrangler tail --format pretty` でリアルタイムログ監視可能
+- Slackメッセージでの処理状況通知
