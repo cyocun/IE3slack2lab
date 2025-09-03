@@ -15,20 +15,28 @@ Slackから投稿された画像をGitHubリポジトリにアップロードし
 
 ### 1. Slack App作成
 
-1. [Slack API](https://api.slack.com/apps)で新しいアプリを作成
-2. OAuth & Permissions で以下のスコープを追加:
+1. [Slack API](https://api.slack.com/apps)で「Create New App」→「From scratch」を選び、任意のアプリ名と開発用ワークスペースを指定して作成
+2. サイドメニューの **OAuth & Permissions** を開き、「Scopes」>「Bot Token Scopes」に以下の権限を追加  
+   追加後は **Install to Workspace** をクリックしてボットをワークスペースにインストール
    - `files:read`
    - `channels:history`
    - `chat:write`
-3. Event Subscriptions を有効化し、以下のイベントを購読:
+3. サイドメニューの **Event Subscriptions** を開き、「Subscribe to bot events」で以下のイベントを追加
+   Request URL と **Enable Events** の設定は後の手順で行います
    - `file_shared`
-   - `message`
-4. Bot Token と Signing Secret を取得
+   - `message.channels`
+4. **OAuth & Permissions** で発行された **Bot User OAuth Token** と、**Basic Information** > **App Credentials** にある **Signing Secret** を控える
 
 ### 2. GitHub設定
 
-1. Personal Access Token を生成（`repo`権限）
-2. 対象リポジトリを準備
+1. Personal Access Token を生成
+   - GitHub右上のプロフィールアイコン → **Settings** → **Developer settings** → **Personal access tokens** → **Tokens (classic)** → **Generate new token (classic)**
+   - Note(メモ)と有効期限を設定し、**Select scopes** で **repo** にチェックを入れて作成
+   - 表示されたトークンを控える
+2. 画像を保存するリポジトリを準備
+   - GitHub右上の **+** → **New repository** から新規リポジトリを作成するか、既存リポジトリを使用
+   - リポジトリのオーナー名とリポジトリ名を控える（例: `yourname/yourrepo`）  
+     これらは後の `GITHUB_OWNER` と `GITHUB_REPO` シークレット設定で使用します
 
 ### 3. Cloudflare Workersデプロイ
 
@@ -52,8 +60,8 @@ wrangler deploy
 
 ### 4. Slack App設定更新
 
-1. Event SubscriptionsのRequest URLに`https://your-worker.workers.dev/slack/events`を設定
-2. Verificationが成功することを確認
+1. Event Subscriptionsで **Enable Events** をオンにし、Request URLに`https://your-worker.workers.dev/slack/events`を設定
+2. Verificationが成功したら **Save Changes** をクリック
 
 ## 使用方法
 
