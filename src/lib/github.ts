@@ -234,10 +234,15 @@ export class GitHubClient {
       let blobContent: string;
       
       if (file.isText) {
-        // テキストファイル（JSON）の場合：UTF-8として処理
-        const decoder = new TextDecoder('utf-8');
-        const textContent = decoder.decode(file.content);
-        blobContent = btoa(unescape(encodeURIComponent(textContent))); // UTF-8をBase64に正しく変換
+        // テキストファイル（JSON）の場合：UTF-8として正しく処理
+        const uint8Array = new Uint8Array(file.content);
+        let binaryString = '';
+        
+        // UTF-8バイト配列をバイナリ文字列に変換
+        for (let i = 0; i < uint8Array.length; i++) {
+          binaryString += String.fromCharCode(uint8Array[i]!);
+        }
+        blobContent = btoa(binaryString);
       } else {
         // バイナリファイル（画像）の場合：従来のチャンク処理
         const uint8Array = new Uint8Array(file.content);
