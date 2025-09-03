@@ -1,8 +1,21 @@
 [
   {
+    "id": 28,
+    "image": "/mock-dir/public/images/2025/09/1756924724028_20250522.jpg",
+    "datetime": "2025-01-01",
+    "metadata": {
+      "uploaded_at": "2025-09-03T18:38:44.177Z",
+      "updated_at": "2025-09-03T18:38:44.177Z",
+      "slack_user": "U8QAVGL07",
+      "slack_channel": "C09CY145CFR",
+      "slack_thread_ts": "1756924721.288469",
+      "slack_message_ts": "1756924721.288469"
+    }
+  },
+  {
     "id": 27,
     "image": "/images/lab/20250812.jpg",
-    "title": "Heatsink...📛",
+    "title": "Heatsink...ð",
     "datetime": "2025-08-12"
   },
   {
@@ -14,7 +27,7 @@
   {
     "id": 25,
     "image": "/images/lab/20250731.jpg",
-    "title": "1st anniversary!!🍖",
+    "title": "1st anniversary!!ð",
     "datetime": "2025-07-31"
   },
   {
@@ -43,7 +56,7 @@
   {
     "id": 20,
     "image": "/images/lab/20250709.jpg",
-    "title": "MNC Party🎉",
+    "title": "MNC Partyð",
     "datetime": "2025-07-09"
   },
   {
@@ -94,13 +107,13 @@
   {
     "id": 12,
     "image": "/images/lab/20250702-2.jpg",
-    "title": "Painting Desk🧑‍🎨",
+    "title": "Painting Deskð§âð¨",
     "datetime": "2025-07-02"
   },
   {
     "id": 11,
     "image": "/images/lab/20250702-1.jpg",
-    "title": "Building Desk👷",
+    "title": "Building Deskð·",
     "datetime": "2025-07-02"
   },
   {
@@ -144,7 +157,7 @@
   {
     "id": 4,
     "image": "/images/lab/20250122.jpg",
-    "title": "Hatsumode🎍",
+    "title": "Hatsumodeð",
     "datetime": "2025-01-22"
   },
   {
