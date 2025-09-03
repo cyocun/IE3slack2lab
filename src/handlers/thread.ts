@@ -36,10 +36,23 @@ export async function handleThreadOperation(
   }
 
   // JSONから対象のアイテムを検索
-  const jsonData = await githubClient.getJSON(env.JSON_PATH);
-  const targetItem = jsonData.items.find(
-    item => item.metadata?.slack_message_ts === thread_ts
-  );
+  let jsonData;
+  let targetItem;
+  
+  try {
+    jsonData = await githubClient.getJSON(env.JSON_PATH);
+    targetItem = jsonData.items.find(
+      item => item.metadata?.slack_message_ts === thread_ts
+    );
+  } catch (fetchError) {
+    console.error('Failed to fetch JSON data:', fetchError);
+    await slackClient.postMessage(
+      channel,
+      `❌ JSONデータの取得に失敗しました: ${(fetchError as Error).message}`,
+      thread_ts
+    );
+    return;
+  }
 
   if (!targetItem) {
     await slackClient.postMessage(
@@ -60,11 +73,78 @@ export async function handleThreadOperation(
     }
   } catch (error) {
     console.error('Thread operation error:', error);
-    await slackClient.postMessage(
-      channel,
-      `❌ 操作中にエラーが発生しました: ${(error as Error).message}`,
-      thread_ts
-    );
+    
+    // エラーの詳細情報を作成
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error && error.stack ? error.stack : '';
+    
+    // エラーの種類を判定
+    let errorType = '操作エラー';
+    if (errorMessage.includes('GitHub') || errorMessage.includes('git')) {
+      errorType = 'GitHub連携エラー';
+    } else if (errorMessage.includes('画像') || errorMessage.includes('image')) {
+      errorType = '画像処理エラー';
+    } else if (errorMessage.includes('JSON')) {
+      errorType = 'データ処理エラー';
+    } else if (errorMessage.includes('Slack')) {
+      errorType = 'Slack連携エラー';
+    } else if (errorMessage.includes('削除') || errorMessage.includes('delete')) {
+      errorType = '削除処理エラー';
+    } else if (errorMessage.includes('更新') || errorMessage.includes('update')) {
+      errorType = '更新処理エラー';
+    }
+    
+    // Slackに詳細なエラー通知
+    const notificationMessage = [
+      `❌ ${errorType}が発生しました`,
+      '',
+      `**エラー内容:** ${errorMessage}`,
+      '',
+      '📋 **詳細情報:**',
+      `• 発生時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`,
+      `• ユーザー: <@${user}>`,
+      `• チャンネル: <#${channel}>`,
+      `• 操作種別: ${parsed?.action || '不明'}`,
+      ...(targetItem ? [`• 対象アイテム: ${targetItem.title}`] : []),
+      '',
+      '🔧 **対処法:**',
+      '• しばらく待ってから再度お試しください',
+      '• 問題が続く場合は、管理者にお問い合わせください'
+    ].join('\n');
+    
+    try {
+      await slackClient.postMessage(channel, notificationMessage, thread_ts);
+    } catch (notificationError) {
+      console.error('Error notification failed:', notificationError);
+      // 最低限のエラー通知を試みる
+      try {
+        await slackClient.postMessage(
+          channel,
+          `❌ 操作中にエラーが発生しました: ${errorMessage}`,
+          thread_ts
+        );
+      } catch (fallbackError) {
+        console.error('Fallback notification also failed:', fallbackError);
+      }
+    }
+    
+    // デバッグ用に詳細なログを出力
+    console.error('Full error details:', {
+      type: errorType,
+      message: errorMessage,
+      stack: errorStack,
+      event: {
+        channel,
+        user,
+        thread_ts,
+        hasFiles: !!files && files.length > 0,
+        parsedData: parsed,
+        targetItem: targetItem ? {
+          id: targetItem.id,
+          title: targetItem.title
+        } : null
+      }
+    });
   }
 }
 
@@ -102,6 +182,11 @@ async function handleDelete(
     } catch (error) {
       console.error('Image deletion error:', error);
       // 画像削除に失敗してもJSONの更新は続行
+      await slackClient.postMessage(
+        channel,
+        `⚠️ 画像ファイルの削除に失敗しましたが、データの削除は続行します`,
+        threadTs
+      );
     }
   }
 
@@ -114,11 +199,16 @@ async function handleDelete(
   };
 
   // GitHubのJSONファイルを更新
-  await githubClient.updateJSON(
-    env.JSON_PATH,
-    updatedJson,
-    `Delete item: ${targetItem.title}`
-  );
+  try {
+    await githubClient.updateJSON(
+      env.JSON_PATH,
+      updatedJson,
+      `Delete item: ${targetItem.title}`
+    );
+  } catch (updateError) {
+    console.error('JSON update error during deletion:', updateError);
+    throw new Error(`JSONファイルの更新に失敗しました: ${(updateError as Error).message}`);
+  }
 
   // 削除完了の通知
   await slackClient.postMessage(
@@ -162,21 +252,47 @@ async function handleUpdate(
   // 画像の更新処理
   if (files && files.length > 0) {
     const file = files[0];
-    const fileInfo = await slackClient.getFileInfo(file.id);
+    let fileInfo;
+    try {
+      fileInfo = await slackClient.getFileInfo(file.id);
+    } catch (fileError) {
+      console.error('Failed to get file info:', fileError);
+      throw new Error(`ファイル情報の取得に失敗しました: ${(fileError as Error).message}`);
+    }
     
     // 画像ファイルかチェック
     if (fileInfo.ok && fileInfo.file.mimetype?.startsWith('image/')) {
       // 新しい画像をダウンロード・リサイズ・アップロード
-      const imageBuffer = await slackClient.downloadFile(fileInfo.file.url_private_download);
-      const resizedImage = await resizeImage(imageBuffer);
+      let imageBuffer: ArrayBuffer;
+      let resizedImage: ArrayBuffer;
+      
+      try {
+        imageBuffer = await slackClient.downloadFile(fileInfo.file.url_private_download);
+      } catch (downloadError) {
+        console.error('Image download error:', downloadError);
+        throw new Error(`画像のダウンロードに失敗しました: ${(downloadError as Error).message}`);
+      }
+      
+      try {
+        resizedImage = await resizeImage(imageBuffer);
+      } catch (resizeError) {
+        console.error('Image resize error:', resizeError);
+        throw new Error(`画像のリサイズに失敗しました: ${(resizeError as Error).message}`);
+      }
+      
       const { path } = generateImagePath(fileInfo.file.name);
       const fullPath = `${env.IMAGE_PATH}${path}`;
       
-      await githubClient.uploadFile(
-        fullPath,
-        resizedImage,
-        `Update image: ${updatedItem.title}`
-      );
+      try {
+        await githubClient.uploadFile(
+          fullPath,
+          resizedImage,
+          `Update image: ${updatedItem.title}`
+        );
+      } catch (uploadError) {
+        console.error('Image upload error:', uploadError);
+        throw new Error(`画像のアップロードに失敗しました: ${(uploadError as Error).message}`);
+      }
 
       // 古い画像の削除
       if (targetItem.image && targetItem.image !== path) {
@@ -188,6 +304,7 @@ async function handleUpdate(
         } catch (error) {
           console.error('Old image deletion error:', error);
           // 古い画像の削除に失敗しても処理は続行
+          console.warn('古い画像ファイルの削除に失敗しましたが、処理を続行します');
         }
       }
 
@@ -214,11 +331,16 @@ async function handleUpdate(
   };
 
   // GitHubのJSONファイルを更新
-  await githubClient.updateJSON(
-    env.JSON_PATH,
-    updatedJson,
-    `Update item: ${updatedItem.title}`
-  );
+  try {
+    await githubClient.updateJSON(
+      env.JSON_PATH,
+      updatedJson,
+      `Update item: ${updatedItem.title}`
+    );
+  } catch (updateError) {
+    console.error('JSON update error:', updateError);
+    throw new Error(`JSONファイルの更新に失敗しました: ${(updateError as Error).message}`);
+  }
 
   // 更新完了の通知メッセージを作成
   let updateMessage = '✅ 更新完了:\n';

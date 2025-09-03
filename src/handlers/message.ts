@@ -82,8 +82,22 @@ export async function handleMessage(
     }
 
     // 画像をダウンロードしてリサイズ
-    const imageBuffer = await slackClient.downloadFile(fileInfo.file.url_private_download);
-    const resizedImage = await resizeImage(imageBuffer);
+    let imageBuffer: ArrayBuffer;
+    let resizedImage: ArrayBuffer;
+    
+    try {
+      imageBuffer = await slackClient.downloadFile(fileInfo.file.url_private_download);
+    } catch (downloadError) {
+      console.error('Image download error:', downloadError);
+      throw new Error(`画像のダウンロードに失敗しました: ${(downloadError as Error).message}`);
+    }
+    
+    try {
+      resizedImage = await resizeImage(imageBuffer);
+    } catch (resizeError) {
+      console.error('Image resize error:', resizeError);
+      throw new Error(`画像のリサイズに失敗しました: ${(resizeError as Error).message}`);
+    }
     
     // 保存パスを生成
     const timestamp = Date.now();
@@ -91,14 +105,25 @@ export async function handleMessage(
     const fullPath = `${env.IMAGE_PATH}${path}`;
     
     // GitHubに画像をアップロード
-    await githubClient.uploadFile(
-      fullPath,
-      resizedImage,
-      `Add image: ${parsed.title}`
-    );
+    try {
+      await githubClient.uploadFile(
+        fullPath,
+        resizedImage,
+        `Add image: ${parsed.title}`
+      );
+    } catch (uploadError) {
+      console.error('GitHub upload error:', uploadError);
+      throw new Error(`GitHubへの画像アップロードに失敗しました: ${(uploadError as Error).message}`);
+    }
 
     // 既存のJSONデータを取得
-    const jsonData = await githubClient.getJSON(env.JSON_PATH);
+    let jsonData;
+    try {
+      jsonData = await githubClient.getJSON(env.JSON_PATH);
+    } catch (jsonError) {
+      console.error('JSON fetch error:', jsonError);
+      throw new Error(`JSONデータの取得に失敗しました: ${(jsonError as Error).message}`);
+    }
     
     // 新しいアイテムデータを作成
     const metadata: ItemMetadata = {
@@ -124,11 +149,22 @@ export async function handleMessage(
     jsonData.last_updated = new Date().toISOString();
 
     // GitHubのJSONファイルを更新
-    await githubClient.updateJSON(
-      env.JSON_PATH,
-      jsonData,
-      `Add item: ${parsed.title}`
-    );
+    try {
+      await githubClient.updateJSON(
+        env.JSON_PATH,
+        jsonData,
+        `Add item: ${parsed.title}`
+      );
+    } catch (updateError) {
+      console.error('JSON update error:', updateError);
+      // 画像はアップロード済みなので、削除を試みる
+      try {
+        await githubClient.deleteFile(fullPath, `Rollback: Delete orphaned image`);
+      } catch (rollbackError) {
+        console.error('Image rollback failed:', rollbackError);
+      }
+      throw new Error(`JSONファイルの更新に失敗しました: ${(updateError as Error).message}`);
+    }
 
     // 完了通知メッセージ
     const successMessage = [
@@ -146,10 +182,68 @@ export async function handleMessage(
 
   } catch (error) {
     console.error('Message handling error:', error);
-    await slackClient.postMessage(
-      channel,
-      `❌ エラーが発生しました: ${(error as Error).message}`,
-      ts
-    );
+    
+    // エラーの詳細情報を作成
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error && error.stack ? error.stack : '';
+    
+    // エラーの種類を判定
+    let errorType = 'エラー';
+    if (errorMessage.includes('GitHub') || errorMessage.includes('git')) {
+      errorType = 'GitHub連携エラー';
+    } else if (errorMessage.includes('画像') || errorMessage.includes('image')) {
+      errorType = '画像処理エラー';
+    } else if (errorMessage.includes('JSON')) {
+      errorType = 'データ処理エラー';
+    } else if (errorMessage.includes('Slack')) {
+      errorType = 'Slack連携エラー';
+    }
+    
+    // Slackに詳細なエラー通知
+    const notificationMessage = [
+      `❌ ${errorType}が発生しました`,
+      '',
+      `**エラー内容:** ${errorMessage}`,
+      '',
+      '📋 **詳細情報:**',
+      `• 発生時刻: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}`,
+      `• ユーザー: <@${user}>`,
+      `• チャンネル: <#${channel}>`,
+      ...(parsed.title ? [`• タイトル: ${parsed.title}`] : []),
+      '',
+      '🔧 **対処法:**',
+      '• しばらく待ってから再度お試しください',
+      '• 問題が続く場合は、管理者にお問い合わせください'
+    ].join('\n');
+    
+    try {
+      await slackClient.postMessage(channel, notificationMessage, ts);
+    } catch (notificationError) {
+      console.error('Error notification failed:', notificationError);
+      // 最低限のエラー通知を試みる
+      try {
+        await slackClient.postMessage(
+          channel,
+          `❌ エラーが発生しました: ${errorMessage}`,
+          ts
+        );
+      } catch (fallbackError) {
+        console.error('Fallback notification also failed:', fallbackError);
+      }
+    }
+    
+    // デバッグ用に詳細なログを出力
+    console.error('Full error details:', {
+      type: errorType,
+      message: errorMessage,
+      stack: errorStack,
+      event: {
+        channel,
+        user,
+        ts,
+        hasFiles: !!files && files.length > 0,
+        parsedData: parsed
+      }
+    });
   }
 }

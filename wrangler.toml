@@ -5,12 +5,16 @@ account_id = "174a228859d1986be1c1831363b39bca"
 
 [vars]
 IMAGE_PATH = "images/"
-JSON_PATH = "data.json"
-GITHUB_BRANCH = "main"
+JSON_PATH = "data/lab.json"
+GITHUB_BRANCH = "develop"
 
 # Secrets should be set via CLI:
 # wrangler secret put SLACK_BOT_TOKEN
-# wrangler secret put SLACK_SIGNING_SECRET  
+# wrangler secret put SLACK_SIGNING_SECRET
 # wrangler secret put GITHUB_TOKEN
 # wrangler secret put GITHUB_OWNER
 # wrangler secret put GITHUB_REPO
+
+# wrangler.toml (wrangler v3.88.0^)
+[observability.logs]
+enabled = true
