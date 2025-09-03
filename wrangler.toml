@@ -4,8 +4,8 @@ compatibility_date = "2024-01-15"
 account_id = "174a228859d1986be1c1831363b39bca"
 
 [vars]
-IMAGE_PATH = "images/"
-JSON_PATH = "data/lab.json"
+IMAGE_PATH = "mock-dir/public/images/"
+JSON_PATH = "mock-dir/app/data/lab.json"
 GITHUB_BRANCH = "develop"
 
 # Secrets should be set via CLI:
