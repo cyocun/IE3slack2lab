@@ -23,13 +23,14 @@ export class GitHubClient {
    * @returns ファイル情報またはnull（存在しない場合）
    */
   async getFile(path: string): Promise<GitHubFile | null> {
-    const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${path}`;
+    const url = `${this.baseUrl}/repos/${this.owner}/${this.repo}/contents/${path}?ref=${this.branch}`;
     
     console.log('GitHub API Request:', {
       url,
       owner: this.owner,
       repo: this.repo,
       path,
+      branch: this.branch,
       tokenLength: this.token?.length || 0
     });
     
@@ -75,9 +76,19 @@ export class GitHubClient {
     // リトライの場合は必ず最新のファイル情報を取得
     const existingFile = await this.getFile(path);
     
+    // 大きなファイルでスタックオーバーフローを避けるため、チャンク処理でBase64エンコード
+    const uint8Array = new Uint8Array(content);
+    let binaryString = '';
+    const chunkSize = 8192; // 8KB chunks to avoid stack overflow
+    
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.slice(i, i + chunkSize);
+      binaryString += String.fromCharCode(...chunk);
+    }
+    
     const body: GitHubUploadRequest = {
       message,
-      content: btoa(String.fromCharCode(...new Uint8Array(content))), // Base64エンコード
+      content: btoa(binaryString), // Base64エンコード
       branch: this.branch
     };
 
