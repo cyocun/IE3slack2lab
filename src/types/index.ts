@@ -80,9 +80,9 @@ export interface GitHubUploadRequest {
 
 // メッセージパース結果
 export interface ParsedMessage {
-  title?: string;
-  date?: string;
-  link?: string;
+  title: string | undefined;
+  date: string | undefined;
+  link: string | undefined;
   errors: string[];
 }
 

@@ -40,7 +40,7 @@ async function handleSlackEvent(request: Request, env: Environment): Promise<Res
   const verifier = new SlackVerifier(env.SLACK_SIGNING_SECRET);
   
   const clonedRequest = request.clone();
-  const isValid = await verifier.verifyRequest(clonedRequest);
+  const isValid = await verifier.verifyRequest(clonedRequest as any);
   
   if (!isValid) {
     return new Response('Unauthorized', { status: 401 });

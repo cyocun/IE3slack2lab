@@ -147,6 +147,6 @@ export class GitHubClient {
     const encoder = new TextEncoder();
     const buffer = encoder.encode(content);
     
-    return this.uploadFile(path, buffer, message);
+    return this.uploadFile(path, buffer.buffer, message);
   }
 }

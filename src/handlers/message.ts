@@ -62,6 +62,9 @@ export async function handleMessage(
 
     // 最初の添付ファイルを処理対象とする
     const file = files[0];
+    if (!file) {
+      throw new Error('ファイルが見つかりません');
+    }
     const fileInfo = await slackClient.getFileInfo(file.id);
     
     if (!fileInfo.ok) {
