@@ -15,15 +15,17 @@ Slackから投稿された画像をGitHubリポジトリにアップロードし
 
 ### 1. Slack App作成
 
-1. [Slack API](https://api.slack.com/apps)で新しいアプリを作成
-2. OAuth & Permissions で以下のスコープを追加:
+1. [Slack API](https://api.slack.com/apps)で「Create New App」→「From scratch」を選び、任意のアプリ名と開発用ワークスペースを指定して作成
+2. サイドメニューの **OAuth & Permissions** を開き、「Scopes」>「Bot Token Scopes」に以下の権限を追加  
+   追加後は **Install to Workspace** をクリックしてボットをワークスペースにインストール
    - `files:read`
    - `channels:history`
    - `chat:write`
-3. Event Subscriptions を有効化し、以下のイベントを購読:
+3. サイドメニューの **Event Subscriptions** を開き、**Enable Events** をオンにして「Subscribe to bot events」で以下のイベントを追加  
+   Request URL は後の手順で設定します
    - `file_shared`
    - `message`
-4. Bot Token と Signing Secret を取得
+4. **OAuth & Permissions** で発行された **Bot User OAuth Token** と、**Basic Information** > **App Credentials** にある **Signing Secret** を控える
 
 ### 2. GitHub設定
 
