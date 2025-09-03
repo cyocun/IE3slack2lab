@@ -132,18 +132,6 @@ export async function handleMessage(
     const { path } = generateImagePath(fileInfo.file.name, timestamp);
     const fullPath = `${env.IMAGE_PATH}${path}`;
     
-    // GitHubに画像をアップロード
-    try {
-      await githubClient.uploadFile(
-        fullPath,
-        resizedImage,
-        `Add image: ${parsed.title}`
-      );
-    } catch (uploadError) {
-      console.error('GitHub upload error:', uploadError);
-      throw new Error(`GitHubへの画像アップロードに失敗しました: ${(uploadError as Error).message}`);
-    }
-
     // 既存のJSONデータを取得
     let jsonData: JSONData;
     try {
@@ -177,23 +165,21 @@ export async function handleMessage(
 
     // 配列の先頭に追加
     const updatedJsonData = [newItem, ...jsonData];
+    
+    // JSONデータをArrayBufferに変換
+    const jsonContent = JSON.stringify(updatedJsonData, null, 2);
+    const encoder = new TextEncoder();
+    const jsonBuffer = encoder.encode(jsonContent);
 
-    // GitHubのJSONファイルを更新
+    // 1つのコミットで画像とJSONを同時アップロード
     try {
-      await githubClient.updateJSON(
-        env.JSON_PATH,
-        updatedJsonData,
-        `Add item: ${parsed.title || `id_${newItem.id}`}`
-      );
-    } catch (updateError) {
-      console.error('JSON update error:', updateError);
-      // 画像はアップロード済みなので、削除を試みる
-      try {
-        await githubClient.deleteFile(fullPath, `Rollback: Delete orphaned image`);
-      } catch (rollbackError) {
-        console.error('Image rollback failed:', rollbackError);
-      }
-      throw new Error(`JSONファイルの更新に失敗しました: ${(updateError as Error).message}`);
+      await githubClient.uploadMultipleFiles([
+        { path: fullPath, content: resizedImage, isText: false }, // 画像ファイル
+        { path: env.JSON_PATH, content: jsonBuffer.buffer, isText: true } // JSONテキストファイル
+      ], `Add item: ${parsed.title || `id_${newItem.id}`}`);
+    } catch (uploadError) {
+      console.error('Multiple files upload error:', uploadError);
+      throw new Error(`GitHubへのアップロードに失敗しました: ${(uploadError as Error).message}`);
     }
 
     // シンプルな成功メッセージ

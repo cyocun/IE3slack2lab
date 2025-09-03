@@ -204,4 +204,144 @@ export class GitHubClient {
     // リトライなし、即座に実行
     return this.uploadFile(path, buffer.buffer, message);
   }
+
+  /**
+   * 複数ファイルを1つのコミットでアップロード（Tree API使用）
+   * @param files アップロードするファイルの配列
+   * @param message コミットメッセージ
+   * @returns コミット結果
+   */
+  async uploadMultipleFiles(files: Array<{path: string, content: ArrayBuffer, isText?: boolean}>, message: string): Promise<any> {
+    // 1. 現在のブランチの最新コミットを取得
+    const branchResponse = await fetch(`${this.baseUrl}/repos/${this.owner}/${this.repo}/branches/${this.branch}`, {
+      headers: {
+        'Authorization': `token ${this.token}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'slack-to-github-image-uploader/1.0.0'
+      }
+    });
+
+    if (!branchResponse.ok) {
+      throw new Error(`Branch fetch failed: ${branchResponse.status}`);
+    }
+
+    const branchData = await branchResponse.json() as any;
+    const latestCommitSha = branchData.commit.sha;
+    const baseTreeSha = branchData.commit.commit.tree.sha;
+
+    // 2. ブロブを作成
+    const blobs = await Promise.all(files.map(async (file) => {
+      let blobContent: string;
+      
+      if (file.isText) {
+        // テキストファイル（JSON）の場合：UTF-8として処理
+        const decoder = new TextDecoder('utf-8');
+        const textContent = decoder.decode(file.content);
+        blobContent = btoa(unescape(encodeURIComponent(textContent))); // UTF-8をBase64に正しく変換
+      } else {
+        // バイナリファイル（画像）の場合：従来のチャンク処理
+        const uint8Array = new Uint8Array(file.content);
+        let binaryString = '';
+        const chunkSize = 8192;
+        
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.slice(i, i + chunkSize);
+          binaryString += String.fromCharCode(...chunk);
+        }
+        blobContent = btoa(binaryString);
+      }
+
+      const blobResponse = await fetch(`${this.baseUrl}/repos/${this.owner}/${this.repo}/git/blobs`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `token ${this.token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'slack-to-github-image-uploader/1.0.0'
+        },
+        body: JSON.stringify({
+          content: blobContent,
+          encoding: 'base64'
+        })
+      });
+
+      if (!blobResponse.ok) {
+        throw new Error(`Blob creation failed: ${blobResponse.status}`);
+      }
+
+      const blobData = await blobResponse.json() as any;
+      return {
+        path: file.path,
+        sha: blobData.sha
+      };
+    }));
+
+    // 3. ツリーを作成
+    const treeResponse = await fetch(`${this.baseUrl}/repos/${this.owner}/${this.repo}/git/trees`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `token ${this.token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'slack-to-github-image-uploader/1.0.0'
+      },
+      body: JSON.stringify({
+        base_tree: baseTreeSha,
+        tree: blobs.map(blob => ({
+          path: blob.path,
+          mode: '100644',
+          type: 'blob',
+          sha: blob.sha
+        }))
+      })
+    });
+
+    if (!treeResponse.ok) {
+      throw new Error(`Tree creation failed: ${treeResponse.status}`);
+    }
+
+    const treeData = await treeResponse.json() as any;
+
+    // 4. コミットを作成
+    const commitResponse = await fetch(`${this.baseUrl}/repos/${this.owner}/${this.repo}/git/commits`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `token ${this.token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'slack-to-github-image-uploader/1.0.0'
+      },
+      body: JSON.stringify({
+        message,
+        tree: treeData.sha,
+        parents: [latestCommitSha]
+      })
+    });
+
+    if (!commitResponse.ok) {
+      throw new Error(`Commit creation failed: ${commitResponse.status}`);
+    }
+
+    const commitData = await commitResponse.json() as any;
+
+    // 5. ブランチの参照を更新
+    const refResponse = await fetch(`${this.baseUrl}/repos/${this.owner}/${this.repo}/git/refs/heads/${this.branch}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `token ${this.token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'slack-to-github-image-uploader/1.0.0'
+      },
+      body: JSON.stringify({
+        sha: commitData.sha
+      })
+    });
+
+    if (!refResponse.ok) {
+      throw new Error(`Reference update failed: ${refResponse.status}`);
+    }
+
+    return commitData;
+  }
 }
