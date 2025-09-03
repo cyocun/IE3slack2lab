@@ -169,7 +169,9 @@ export class GitHubClient {
     }
     
     try {
-      const content = atob(file.content);
+      // base64デコード後にUTF-8として正しくデコード
+      const binaryString = atob(file.content);
+      const content = decodeURIComponent(escape(binaryString));
       console.log('JSON file content length:', content.length);
       console.log('JSON file content preview:', content.substring(0, 200));
       
@@ -236,13 +238,12 @@ export class GitHubClient {
       if (file.isText) {
         // テキストファイル（JSON）の場合：UTF-8として正しく処理
         const uint8Array = new Uint8Array(file.content);
-        let binaryString = '';
         
-        // UTF-8バイト配列をバイナリ文字列に変換
-        for (let i = 0; i < uint8Array.length; i++) {
-          binaryString += String.fromCharCode(uint8Array[i]!);
-        }
-        blobContent = btoa(binaryString);
+        // UTF-8エンコードされたテキストをbase64に変換
+        // CloudflareのWorker環境でも動作するように、btoaを直接使用
+        const textDecoder = new TextDecoder('utf-8');
+        const decodedText = textDecoder.decode(uint8Array);
+        blobContent = btoa(unescape(encodeURIComponent(decodedText)));
       } else {
         // バイナリファイル（画像）の場合：従来のチャンク処理
         const uint8Array = new Uint8Array(file.content);
