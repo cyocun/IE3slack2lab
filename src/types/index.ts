@@ -92,17 +92,17 @@ export interface ThreadOperation {
   updates?: Partial<ItemData>;
 }
 
-// JSONデータ項目
+// Labアイテムデータ
 export interface ItemData {
-  id: string;
-  title: string;
-  date: string;
-  link: string;
+  id: number;
   image: string;
-  metadata: ItemMetadata;
+  title?: string;
+  datetime: string;
+  link?: string;
+  metadata?: ItemMetadata;
 }
 
-// アイテムのメタデータ
+// Slack連携情報
 export interface ItemMetadata {
   uploaded_at: string;
   updated_at: string;
@@ -112,11 +112,8 @@ export interface ItemMetadata {
   slack_message_ts: string;
 }
 
-// JSON全体の構造
-export interface JSONData {
-  items: ItemData[];
-  last_updated: string;
-}
+// JSONデータはアイテム配列
+export type JSONData = ItemData[];
 
 // 画像生成結果
 export interface ImagePathResult {

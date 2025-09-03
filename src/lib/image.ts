@@ -1,38 +1,38 @@
+import imageCompression from 'browser-image-compression';
 import type { ImagePathResult } from '../types/index.js';
 
 /**
- * Cloudflare Image Resizingを使用して画像をリサイズ
+ * browser-image-compressionを使用して画像をリサイズ・圧縮
  * @param imageBuffer 元画像のバイナリデータ
  * @param maxWidth 最大幅（デフォルト: 1200px）
  * @returns リサイズ済み画像のバイナリデータ
  */
 export async function resizeImage(imageBuffer: ArrayBuffer, maxWidth = 1200): Promise<ArrayBuffer> {
-  // ArrayBufferからBlobを作成
-  const blob = new Blob([imageBuffer], { type: 'image/jpeg' });
-  const url = URL.createObjectURL(blob);
+  console.log(`Processing image: ${Math.round(imageBuffer.byteLength / 1024)}KB`);
   
-  try {
-    // Cloudflare Image Resizingを使用してリサイズ
-    const response = await fetch(url, {
-      cf: {
-        image: {
-          width: maxWidth,
-          quality: 85,
-          format: 'jpeg',
-          fit: 'scale-down' // アスペクト比を維持してリサイズ
-        }
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Image resize failed: ${response.status}`);
-    }
-    
-    return await response.arrayBuffer();
-  } finally {
-    // メモリリークを防ぐため、作成したURLを解放
-    URL.revokeObjectURL(url);
-  }
+  // ArrayBufferをFileオブジェクトに変換
+  const imageBlob = new Blob([imageBuffer], { type: 'image/jpeg' });
+  const imageFile = new File([imageBlob], 'image.jpg', { type: 'image/jpeg' });
+  
+  // 圧縮オプションを設定
+  const options = {
+    maxSizeMB: 2, // 最大2MBに圧縮
+    maxWidthOrHeight: maxWidth, // 最大幅または高さ
+    useWebWorker: false, // Cloudflare WorkersではWeb Workerは使用しない
+    quality: 0.85, // JPEG品質 (0-1)
+    initialQuality: 0.85
+  };
+  
+  // 画像を圧縮・リサイズ（エラー時は例外をスロー）
+  const compressedFile = await imageCompression(imageFile, options);
+  
+  // FileオブジェクトをArrayBufferに変換
+  const compressedArrayBuffer = await compressedFile.arrayBuffer();
+  
+  const compressionRatio = Math.round((compressedArrayBuffer.byteLength / imageBuffer.byteLength) * 100);
+  console.log(`Image compressed: ${Math.round(compressedArrayBuffer.byteLength / 1024)}KB (${compressionRatio}% of original)`);
+  
+  return compressedArrayBuffer;
 }
 
 /**

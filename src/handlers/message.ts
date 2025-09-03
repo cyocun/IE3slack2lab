@@ -7,7 +7,8 @@ import type {
   SlackMessage, 
   Environment, 
   ItemData, 
-  ItemMetadata 
+  ItemMetadata,
+  JSONData
 } from '../types/index.js';
 
 /**
@@ -29,6 +30,27 @@ export async function handleMessage(
   // スレッドでの返信の場合はスレッド操作として処理
   if (thread_ts) {
     await handleThreadOperation(event, slackClient, githubClient, env);
+    return;
+  }
+
+  // /formatコマンドの処理
+  if (text?.trim() === '/format') {
+    const formatMessage = [
+      '📄 **投稿フォーマット**',
+      '',
+      'title: [タイトル] **(optional)**',
+      'date: YYYY/MM/DD **(required)**',
+      'url: [URL] **(optional)**',
+      '',
+      '**例:**',
+      'title: 新商品リリース',
+      'date: 2024/01/15',
+      'url: https://example.com',
+      '',
+      '※ 画像を必ず添付してください'
+    ].join('\n');
+    
+    await slackClient.postMessage(channel, formatMessage, ts);
     return;
   }
 
@@ -117,7 +139,7 @@ export async function handleMessage(
     }
 
     // 既存のJSONデータを取得
-    let jsonData;
+    let jsonData: JSONData;
     try {
       jsonData = await githubClient.getJSON(env.JSON_PATH);
     } catch (jsonError) {
@@ -135,25 +157,27 @@ export async function handleMessage(
       slack_message_ts: ts
     };
 
+    // 最大IDを取得
+    const currentMaxId = jsonData.length > 0 ? Math.max(...jsonData.map((item: ItemData) => item.id)) : 0;
+
     const newItem: ItemData = {
-      id: `${timestamp}_${Math.random().toString(36).substr(2, 9)}`,
-      title: parsed.title!,
-      date: parsed.date!,
-      link: parsed.link!,
-      image: path,
+      id: currentMaxId + 1,
+      image: `/${env.IMAGE_PATH}${path}`,
+      datetime: parsed.date!,
+      ...(parsed.title && parsed.title !== `投稿_${parsed.date}` ? { title: parsed.title } : {}),
+      ...(parsed.link ? { link: parsed.link } : {}),
       metadata
     };
 
-    // JSONデータを更新（新しいアイテムを配列の先頭に追加）
-    jsonData.items.splice(0, 0, newItem);
-    jsonData.last_updated = new Date().toISOString();
+    // 配列の先頭に追加
+    const updatedJsonData = [newItem, ...jsonData];
 
     // GitHubのJSONファイルを更新
     try {
       await githubClient.updateJSON(
         env.JSON_PATH,
-        jsonData,
-        `Add item: ${parsed.title}`
+        updatedJsonData,
+        `Add item: ${parsed.title || `id_${newItem.id}`}`
       );
     } catch (updateError) {
       console.error('JSON update error:', updateError);
@@ -166,17 +190,8 @@ export async function handleMessage(
       throw new Error(`JSONファイルの更新に失敗しました: ${(updateError as Error).message}`);
     }
 
-    // 完了通知メッセージ
-    const successMessage = [
-      '✅ 画像をアップロードしました！',
-      `• タイトル: ${parsed.title}`,
-      `• 日付: ${parsed.date}`,
-      `• リンク: ${parsed.link}`,
-      '',
-      '💡 ヒント: このスレッドで以下の操作ができます:',
-      '• `delete` - 投稿を削除',
-      '• タイトル、日付、リンクの更新'
-    ].join('\n');
+    // シンプルな成功メッセージ
+    const successMessage = '✅ 画像をアップロードしました';
 
     await slackClient.postMessage(channel, successMessage, ts);
 

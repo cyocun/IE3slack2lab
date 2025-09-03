@@ -27,5 +27,7 @@
     "vitest": "^1.2.1",
     "wrangler": "^3.25.0"
   },
-  "dependencies": {}
+  "dependencies": {
+    "browser-image-compression": "^2.0.2"
+  }
 }

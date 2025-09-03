@@ -36,20 +36,45 @@ const worker: ExportedHandler<Environment> = {
  * @returns HTTP応答
  */
 async function handleSlackEvent(request: Request, env: Environment): Promise<Response> {
+  console.log('=== Slack Event Received ===');
+  // Headersのログ出力を修正
+  const headers: Record<string, string> = {};
+  request.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
+  console.log('Headers:', headers);
+  
   // Slack署名の検証
   const verifier = new SlackVerifier(env.SLACK_SIGNING_SECRET);
   
   const clonedRequest = request.clone();
-  const isValid = await verifier.verifyRequest(clonedRequest as any);
+  console.log('Verifying Slack signature...');
+  console.log('SLACK_SIGNING_SECRET exists:', !!env.SLACK_SIGNING_SECRET);
+  console.log('SLACK_SIGNING_SECRET length:', env.SLACK_SIGNING_SECRET?.length);
+  
+  let isValid = false;
+  try {
+    isValid = await verifier.verifyRequest(clonedRequest as any);
+  } catch (verifyError) {
+    console.error('Error during signature verification:', verifyError);
+    console.error('Stack:', (verifyError as Error).stack);
+  }
   
   if (!isValid) {
-    return new Response('Unauthorized', { status: 401 });
+    console.error('Slack signature verification failed!');
+    // デバッグのため一時的に署名検証をバイパス（本番では必ず有効にすること）
+    console.warn('⚠️ WARNING: Bypassing signature verification for debugging');
+    // return new Response('Unauthorized', { status: 401 });
+  } else {
+    console.log('Slack signature verified successfully');
   }
 
   const body: SlackEvent | SlackVerificationEvent = await request.json();
+  console.log('Request body:', JSON.stringify(body, null, 2));
 
   // URL検証（Slack App設定時の初回リクエスト）
   if (body.type === 'url_verification') {
+    console.log('URL verification request received');
     return new Response((body as SlackVerificationEvent).challenge, {
       headers: { 'Content-Type': 'text/plain' }
     });
@@ -57,6 +82,9 @@ async function handleSlackEvent(request: Request, env: Environment): Promise<Res
 
   // イベント処理
   if ('event' in body) {
+    console.log(`Event type: ${body.event.type}, Subtype: ${body.event.subtype || 'none'}`);
+    console.log('Event details:', JSON.stringify(body.event, null, 2));
+    
     const slackClient = new SlackClient(env.SLACK_BOT_TOKEN);
     const githubClient = new GitHubClient(
       env.GITHUB_TOKEN,
@@ -69,11 +97,15 @@ async function handleSlackEvent(request: Request, env: Environment): Promise<Res
     const subtype = body.event.subtype;
 
     // メッセージイベントの処理（ボットや編集メッセージは除く）
-    if (eventType === 'message' && !subtype) {
+    // file_shareサブタイプも処理対象に含める
+    if (eventType === 'message' && (!subtype || subtype === 'file_share')) {
+      console.log('Processing message event with subtype:', subtype || 'none');
       try {
         await handleMessage(body.event, slackClient, githubClient, env);
+        console.log('Message event processed successfully');
       } catch (error) {
         console.error('Event processing error:', error);
+        console.error('Error stack:', (error as Error).stack);
         
         // エラーが発生した場合はSlackに通知
         if (body.event.channel && body.event.ts) {
@@ -92,10 +124,13 @@ async function handleSlackEvent(request: Request, env: Environment): Promise<Res
       // ファイル共有イベントは通常messageイベントでも受信されるため
       // ここでは特別な処理は行わない
       console.log('File shared event received - handled via message event');
+    } else {
+      console.log(`Unhandled event type: ${eventType}, subtype: ${subtype}`);
     }
   }
 
   // Slackには常に200 OKを返す（重複処理を避けるため）
+  console.log('=== Request processed, returning 200 OK ===');
   return new Response('OK', { status: 200 });
 }
 

@@ -33,21 +33,48 @@ export function isValidUrl(urlStr: string): boolean {
  * @returns パース結果とエラー情報
  */
 export function parseMessage(text: string): ParsedMessage {
-  // 正規表現でタイトル、日付、リンクを抽出
-  const title = text.match(/タイトル[：:]\s*(.+)/)?.[1]?.trim();
-  const date = text.match(/日付[：:]\s*(\d{4}-\d{2}-\d{2})/)?.[1]?.trim();
-  const link = text.match(/リンク[：:]\s*(.+)/)?.[1]?.trim();
+  // 新フォーマットに対応: title, date, url
+  // 旧フォーマットとの互換性を保つため、両方のキーワードを受け付ける
+  const title = text.match(/(title|タイトル)[：:]\s*(.+)/i)?.[2]?.trim();
+  
+  // 日付: YYYY/MM/DD または YYYY-MM-DD 形式に対応
+  let date = text.match(/(date|日付)[：:]\s*([\d\/\-]+)/i)?.[2]?.trim();
+  if (date) {
+    // YYYY/MM/DD を YYYY-MM-DD に変換
+    date = date.replace(/\//g, '-');
+  }
+  
+  // URLまたはリンク
+  let link = text.match(/(url|link|リンク)[：:]\s*(.+)/i)?.[2]?.trim();
+  
+  // SlackのURLフォーマット <URL> からURLを抽出
+  if (link) {
+    const slackUrlMatch = link.match(/^<(.+?)>$/);
+    if (slackUrlMatch) {
+      link = slackUrlMatch[1];
+    }
+  }
   
   // バリデーション結果を格納
   const errors: string[] = [];
   
-  if (!title) errors.push('タイトルが未入力です');
-  if (!date) errors.push('日付が未入力です');
-  else if (!isValidDate(date)) errors.push('日付の形式が正しくありません (YYYY-MM-DD)');
-  if (!link) errors.push('リンクが未入力です');
-  else if (!isValidUrl(link)) errors.push('リンクの形式が正しくありません');
+  // titleとurlはoptionalなので、未入力チェックはしない
+  // dateはrequired
+  if (!date) {
+    errors.push('date (日付) は必須です');
+  } else if (!isValidDate(date)) {
+    errors.push('dateの形式が正しくありません (YYYY/MM/DD または YYYY-MM-DD)');
+  }
   
-  return { title, date, link, errors };
+  // urlが指定されている場合のみバリデーション
+  if (link && !isValidUrl(link)) {
+    errors.push('URLの形式が正しくありません');
+  }
+  
+  // titleがない場合はデフォルト値を設定
+  const finalTitle = title || `投稿_${date || new Date().toISOString().split('T')[0]}`;
+  
+  return { title: finalTitle, date, link: link || '', errors };
 }
 
 /**
@@ -64,12 +91,24 @@ export function parseThreadMessage(text: string): ThreadOperation | null {
   // 更新操作の判定
   const updates: Partial<ItemData> = {};
   
-  const title = text.match(/タイトル[：:]\s*(.+)/)?.[1]?.trim();
-  const date = text.match(/日付[：:]\s*(\d{4}-\d{2}-\d{2})/)?.[1]?.trim();
-  const link = text.match(/リンク[：:]\s*(.+)/)?.[1]?.trim();
+  // 新旧両方のフォーマットに対応
+  const title = text.match(/(title|タイトル)[：:]\s*(.+)/i)?.[2]?.trim();
+  let date = text.match(/(date|日付)[：:]\s*([\d\/\-]+)/i)?.[2]?.trim();
+  if (date) {
+    date = date.replace(/\//g, '-');
+  }
+  let link = text.match(/(url|link|リンク)[：:]\s*(.+)/i)?.[2]?.trim();
+  
+  // SlackのURLフォーマット <URL> からURLを抽出
+  if (link) {
+    const slackUrlMatch = link.match(/^<(.+?)>$/);
+    if (slackUrlMatch) {
+      link = slackUrlMatch[1];
+    }
+  }
   
   if (title) updates.title = title;
-  if (date && isValidDate(date)) updates.date = date;
+  if (date && isValidDate(date)) updates.datetime = date;  // date -> datetime
   if (link && isValidUrl(link)) updates.link = link;
   
   // 更新項目があれば更新操作として返す
@@ -87,23 +126,24 @@ export function parseThreadMessage(text: string): ThreadOperation | null {
  */
 export function formatErrorMessage(errors: string[]): string {
   let message = '❌ 投稿フォーマットが正しくありません。\n\n';
-  message += '正しい形式:\n';
-  message += 'タイトル: [タイトル]\n';
-  message += '日付: [YYYY-MM-DD]\n';
-  message += 'リンク: [URL]\n\n';
+  message += '**正しい形式:**\n';
+  message += 'title: [タイトル] **(optional)**\n';
+  message += 'date: YYYY/MM/DD **(required)**\n';
+  message += 'url: [URL] **(optional)**\n\n';
   
   if (errors.length > 0) {
-    message += '検出されたエラー:\n';
+    message += '**検出されたエラー:**\n';
     errors.forEach(error => {
       message += `- ${error}\n`;
     });
     message += '\n';
   }
   
-  message += '例:\n';
-  message += 'タイトル: 新商品リリース\n';
-  message += '日付: 2024-01-15\n';
-  message += 'リンク: https://example.com';
+  message += '**例:**\n';
+  message += 'title: 新商品リリース\n';
+  message += 'date: 2024/01/15\n';
+  message += 'url: https://example.com\n\n';
+  message += '※ 画像を必ず添付してください';
   
   return message;
 }

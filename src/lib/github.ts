@@ -1,4 +1,4 @@
-import type { GitHubFile, GitHubUploadRequest, JSONData } from '../types/index.js';
+import type { GitHubFile, GitHubUploadRequest, JSONData, ItemData } from '../types/index.js';
 
 /**
  * GitHub API操作クラス
@@ -122,13 +122,12 @@ export class GitHubClient {
   /**
    * JSONファイルを取得してパース
    * @param path JSONファイルのパス
-   * @returns パース済みJSONデータ
+   * @returns アイテム配列
    */
   async getJSON(path: string): Promise<JSONData> {
     const file = await this.getFile(path);
     if (!file) {
-      // ファイルが存在しない場合は空のデータを返す
-      return { items: [], last_updated: new Date().toISOString() };
+      return [];
     }
     
     const content = atob(file.content);
@@ -138,7 +137,7 @@ export class GitHubClient {
   /**
    * JSONデータを更新してGitHubにアップロード
    * @param path JSONファイルのパス
-   * @param data 更新するJSONデータ
+   * @param data アイテム配列
    * @param message コミットメッセージ
    * @returns アップロード結果
    */
