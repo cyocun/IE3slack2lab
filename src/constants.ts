@@ -16,7 +16,7 @@ export const GITHUB_BOT = {
 export const KV_CONFIG = {
   // スレッドデータの有効期限（秒）
   THREAD_TTL: 86400, // 24時間
-  // 編集中データの有効期限（秒）  
+  // 編集中データの有効期限（秒）
   EDITING_TTL: 7200, // 2時間
   // 完了後データの有効期限（秒）
   COMPLETED_TTL: 259200, // 3日間（編集・削除のため長めに保持）
@@ -37,7 +37,7 @@ export const MESSAGES = {
     CANCELLED: "キャンセル Done👌",
   },
   PROGRESS: {
-    UPLOAD_PROCESSING: "📤 UP中...",
+    UPLOAD_PROCESSING: "📤 UP中...\n`完了にならない場合はもう一度投稿押してみて。`",
   },
   PROMPTS: {
     DATE_INPUT: "📅 *いつ？*\n`YYYY/MM/DD、YYYYMMDD、MMDD`",

@@ -17,6 +17,10 @@ import {
   deleteImageAndUpdateJson,
 } from "../utils/github";
 import {
+  optimizeImage,
+  changeExtensionToWebP,
+} from "../utils/imageOptimizer";
+import {
   storeThreadData,
   getThreadData,
   deleteThreadData,
@@ -62,6 +66,7 @@ export interface FlowData extends ThreadData {
  */
 function buildSuccessMessage(
   fileName: string,
+  imageUrl: string,
   id: number,
   date: string,
   title?: string,
@@ -69,12 +74,17 @@ function buildSuccessMessage(
 ): string {
   let message =
     `${MESSAGES.SUCCESS.UPLOAD_COMPLETE}\n\n` +
-    `📸 \`${fileName}\`\n` +
-    `🔢 ${id}\n` +
-    `📅 ${date}\n`;
+    `\`\`\``+
+    `📸  <https://ie3.jp${imageUrl}|${fileName}>\n` +
+    `🔢  ${id}\n` +
+    `📅  ${date}\n`;
 
-  if (title) message += `📝 ${title}\n`;
-  if (link) message += `🔗 ${link}\n`;
+    if (title) message += `📝  ${title}\n`;
+    if (link) message += `🔗  ${link}\n`;
+
+    message +=
+    `👩‍💻 https://ie3.jp/lab \n` +
+    `\`\`\``;
 
   return message;
 }
@@ -300,11 +310,15 @@ export async function completeUpload(
       env.SLACK_BOT_TOKEN,
     );
 
-    // ファイル名の生成
+    // 画像を最適化（リサイズとWebP変換）
+    const optimizedImageBuffer = await optimizeImage(imageBuffer, 1200, 1200);
+
+    // ファイル名の生成（WebP拡張子に変更）
     const timestamp = Date.now();
     const [year, month] = flowData.collectedData.date.split("/");
     const sanitizedName = sanitizeFileName(flowData.imageFile.name);
-    const fileName = `${timestamp}_${sanitizedName}`;
+    const webpFileName = changeExtensionToWebP(sanitizedName);
+    const fileName = `${timestamp}_${webpFileName}`;
     const fullPath = `${year}/${month}/${fileName}`;
 
     // JSONデータの準備
@@ -321,8 +335,8 @@ export async function completeUpload(
       link: flowData.collectedData.link || "",
     };
 
-    // GitHubへアップロード
-    await uploadToGitHub(env, fullPath, imageBuffer, [
+    // GitHubへアップロード（最適化された画像を使用）
+    await uploadToGitHub(env, fullPath, optimizedImageBuffer, [
       newEntry,
       ...currentData,
     ]);
@@ -335,6 +349,7 @@ export async function completeUpload(
     // 完了メッセージ（ボタン付き）
     const successText = buildSuccessMessage(
       fileName,
+      newEntry.image,
       newId,
       flowData.collectedData.date,
       flowData.collectedData.title || "",
@@ -346,14 +361,14 @@ export async function completeUpload(
       channel: flowData.channel,
       thread_ts: threadTs,
       text: "",
-      attachments: [
-        {
-          color: "good",
-          text: successText,
-          mrkdwn_in: ["text"],
-        },
-      ],
       blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: successText,
+          },
+        },
         {
           type: "actions",
           elements: [
@@ -378,6 +393,12 @@ export async function completeUpload(
               value: newId.toString(),
             },
           ],
+        },
+      ],
+      attachments: [
+        {
+          color: "good",
+          text: "",
         },
       ],
     };
@@ -671,7 +692,7 @@ export async function confirmDelete(
     if (imagePath) {
       // imagePathから先頭の/を除去（存在する場合）
       const cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
-      
+
       await deleteImageAndUpdateJson(
         env,
         cleanPath,
