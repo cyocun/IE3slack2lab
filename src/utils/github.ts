@@ -194,8 +194,8 @@ export async function getCurrentJsonData(env: Bindings): Promise<LabEntry[]> {
     // base64コンテンツから改行を除去（GitHub APIに含まれるため）
     const cleanContent = data.content.replace(/\n/g, '')
 
-    // base64コンテンツをデコード
-    const decodedContent = atob(cleanContent)
+    // base64コンテンツをUTF-8対応でデコード
+    const decodedContent = base64ToUtf8(cleanContent)
 
     // 空のデコードされたコンテンツを処理
     if (!decodedContent || decodedContent.trim() === '') {
@@ -223,6 +223,16 @@ export async function getCurrentJsonData(env: Bindings): Promise<LabEntry[]> {
 function utf8ToBase64(str: string): string {
   // UTF-8エンコード後にbase64変換
   return btoa(unescape(encodeURIComponent(str)))
+}
+
+/**
+ * base64文字列をUTF-8文字列にデコード
+ * @param base64 - base64エンコード文字列
+ * @returns UTF-8文字列
+ */
+function base64ToUtf8(base64: string): string {
+  // base64デコード後にUTF-8デコード
+  return decodeURIComponent(escape(atob(base64)))
 }
 
 /**
