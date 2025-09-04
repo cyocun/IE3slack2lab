@@ -229,7 +229,7 @@ async function convertArrayBufferToBase64(content: ArrayBuffer): Promise<string>
     const end = Math.min(i + chunkSize, uint8Array.length)
     for (let j = i; j < end; j++) {
       if (typeof uint8Array[j] !== 'undefined') {
-        binaryString += String.fromCharCode(uint8Array[j])
+        binaryString += String.fromCharCode(uint8Array[j]!)
       }
     }
   }

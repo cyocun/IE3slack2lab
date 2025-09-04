@@ -53,18 +53,18 @@ export function parseMessage(text: string): MessageMetadata {
   for (const line of text.split('\n')) {
     const match = line.trim().match(/^([a-z]+):\s*(.*)$/i)
     if (!match) continue
-    const key = match[1].toLowerCase()
-    const value = match[2].trim()
+    const key = match[1]?.toLowerCase()
+    const value = match[2]?.trim()
 
     switch (key) {
       case 'title':
-        metadata.title = value
+        metadata.title = value || ''
         break
       case 'date':
-        metadata.date = value
+        metadata.date = value || ''
         break
       case 'url':
-        metadata.url = value
+        metadata.url = value || ''
         break
     }
   }
