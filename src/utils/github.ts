@@ -580,22 +580,6 @@ export async function deleteImageAndUpdateJson(
   const commitData = (await commitResp.json()) as any;
   const currentTreeSha = commitData.tree.sha;
 
-  // 現在のツリー情報を取得
-  const treeResp = await fetch(
-    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/trees/${currentTreeSha}?recursive=1`,
-    { headers: authHeaders },
-  );
-
-  if (!treeResp.ok) {
-    const errorText = await treeResp.text();
-    console.error("GitHub API error (tree):", treeResp.status, errorText);
-    throw new Error(
-      `GitHub API error: ${treeResp.status} - ${errorText.substring(0, 100)}`,
-    );
-  }
-
-  const treeData = (await treeResp.json()) as any;
-
   // JSONブロブを作成
   const jsonBlob = await fetch(
     `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/blobs`,
@@ -619,15 +603,26 @@ export async function deleteImageAndUpdateJson(
 
   const jsonBlobData = (await jsonBlob.json()) as any;
 
-  // 新しいツリーを作成（画像ファイルを除外し、JSONを更新）
-  const newTreeItems = treeData.tree
-    .filter((item: any) => item.path !== imagePath) // 画像ファイルを除外
-    .map((item: any) => ({
-      path: item.path,
-      mode: item.mode,
-      type: item.type,
-      sha: item.path === JSON_PATH ? jsonBlobData.sha : item.sha, // JSONファイルは新しいSHAに更新
-    }));
+  // 新しいツリーを作成（画像ファイルを削除し、JSONを更新）
+  console.log(`Creating new tree - removing image: ${imagePath}, updating JSON: ${JSON_PATH}`);
+  
+  // ツリーの更新項目を作成
+  const treeUpdates = [
+    // JSONファイルを更新
+    {
+      path: JSON_PATH,
+      mode: "100644",
+      type: "blob",
+      sha: jsonBlobData.sha,
+    },
+    // 画像ファイルを削除（sha: nullで削除を指定）
+    {
+      path: imagePath,
+      mode: "100644",
+      type: "blob",
+      sha: null,
+    },
+  ];
 
   const newTree = await fetch(
     `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/trees`,
@@ -635,7 +630,8 @@ export async function deleteImageAndUpdateJson(
       method: "POST",
       headers: jsonHeaders,
       body: JSON.stringify({
-        tree: newTreeItems,
+        base_tree: currentTreeSha,
+        tree: treeUpdates,
       }),
     },
   );

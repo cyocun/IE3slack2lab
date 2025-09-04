@@ -668,16 +668,12 @@ export async function confirmDelete(
 
     // 画像ファイル削除とJSON更新を1つのコミットで実行
     if (imagePath) {
-      // imagePathは既に/で始まる完全パスなので、先頭の/を除去してからIMAGE_PATHを除去
-      const relativePath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
-      const pathWithoutPrefix = relativePath.startsWith(env.IMAGE_PATH)
-        ? relativePath.substring(env.IMAGE_PATH.length)
-        : relativePath;
-      const fullImagePath = `${env.IMAGE_PATH}${pathWithoutPrefix}`;
+      // imagePathから先頭の/を除去（存在する場合）
+      const cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
       
       await deleteImageAndUpdateJson(
         env,
-        fullImagePath,
+        cleanPath,
         updatedData,
         `🗑️ lab: Delete lab entry ID: ${flowData.entryId}`,
       );
