@@ -1,5 +1,5 @@
-import type { MessageMetadata, Bindings } from '../types'
-import { COMMANDS, VALIDATION, ENDPOINTS, BUTTON_LABELS } from '../constants'
+import type { MessageMetadata, Bindings } from "../types";
+import { COMMANDS, VALIDATION, ENDPOINTS, BLOCK_TEMPLATES } from "../constants";
 
 /**
  * Slack Webhook署名を検証
@@ -13,34 +13,39 @@ export async function verifySlackSignature(
   signature: string | null,
   timestamp: string | null,
   body: string,
-  signingSecret: string
+  signingSecret: string,
 ): Promise<boolean> {
   // 必要なヘッダーの存在確認
-  if (!signature || !timestamp) return false
+  if (!signature || !timestamp) return false;
 
   // タイムスタンプの鮮度確認（最大5分前まで）
-  const time = Math.floor(Date.now() / 1000)
-  if (Math.abs(time - parseInt(timestamp)) > VALIDATION.MAX_TIMESTAMP_DIFF) return false
+  const time = Math.floor(Date.now() / 1000);
+  if (Math.abs(time - parseInt(timestamp)) > VALIDATION.MAX_TIMESTAMP_DIFF)
+    return false;
 
   // 署名ベース文字列の作成
-  const baseString = `v0:${timestamp}:${body}`
+  const baseString = `v0:${timestamp}:${body}`;
 
   // HMAC-SHA256署名の生成
-  const encoder = new TextEncoder()
+  const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
-    'raw',
+    "raw",
     encoder.encode(signingSecret),
-    { name: 'HMAC', hash: 'SHA-256' },
+    { name: "HMAC", hash: "SHA-256" },
     false,
-    ['sign']
-  )
+    ["sign"],
+  );
 
-  const signature_bytes = await crypto.subtle.sign('HMAC', key, encoder.encode(baseString))
+  const signature_bytes = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(baseString),
+  );
   const computed_signature = `v0=${Array.from(new Uint8Array(signature_bytes))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')}`
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")}`;
 
-  return computed_signature === signature
+  return computed_signature === signature;
 }
 
 /**
@@ -49,29 +54,29 @@ export async function verifySlackSignature(
  * @returns title、date、urlを含むオブジェクト
  */
 export function parseMessage(text: string): MessageMetadata {
-  const metadata: MessageMetadata = { title: '', date: '', url: '' }
+  const metadata: MessageMetadata = { title: "", date: "", url: "" };
 
-  for (const line of text.split('\n')) {
-    const match = line.trim().match(/^([a-z]+):\s*(.*)$/i)
-    if (!match) continue
-    const key = match[1]?.toLowerCase()
-    const value = match[2]?.trim()
+  for (const line of text.split("\n")) {
+    const match = line.trim().match(/^([a-z]+):\s*(.*)$/i);
+    if (!match) continue;
+    const key = match[1]?.toLowerCase();
+    const value = match[2]?.trim();
 
     switch (key) {
-      case 'title':
-        metadata.title = value || ''
-        break
-      case 'date':
-        metadata.date = formatDateInput(value || '')
-        break
-      case 'link':
-      case 'url':
-        metadata.url = value || ''
-        break
+      case "title":
+        metadata.title = value || "";
+        break;
+      case "date":
+        metadata.date = formatDateInput(value || "");
+        break;
+      case "link":
+      case "url":
+        metadata.url = value || "";
+        break;
     }
   }
 
-  return metadata
+  return metadata;
 }
 
 /**
@@ -79,23 +84,25 @@ export function parseMessage(text: string): MessageMetadata {
  * @param text - Slackメッセージテキスト
  * @returns 操作タイプまたはnull
  */
-export function detectThreadCommand(text: string): 'delete' | 'update' | 'edit' | null {
-  const trimmedText = text.trim().toLowerCase()
-  
-  if (trimmedText === 'delete' || trimmedText === '削除') {
-    return 'delete'
+export function detectThreadCommand(
+  text: string,
+): "delete" | "update" | "edit" | null {
+  const trimmedText = text.trim().toLowerCase();
+
+  if (trimmedText === "delete" || trimmedText === "削除") {
+    return "delete";
   }
-  
-  if (COMMANDS.EDIT.some(cmd => trimmedText === cmd)) {
-    return 'edit'
+
+  if (COMMANDS.EDIT.some((cmd) => trimmedText === cmd)) {
+    return "edit";
   }
-  
+
   // 更新の場合は、date:, title:, link: のいずれかが含まれている
   if (COMMANDS.UPDATE_PATTERNS.test(text.toLowerCase())) {
-    return 'update'
+    return "update";
   }
-  
-  return null
+
+  return null;
 }
 
 /**
@@ -104,42 +111,42 @@ export function detectThreadCommand(text: string): 'delete' | 'update' | 'edit' 
  * @returns YYYY/MM/DD 形式の日付文字列、または空文字列（無効な場合）
  */
 export function formatDateInput(dateInput: string): string {
-  if (!dateInput) return ''
-  
-  const cleanDate = dateInput.replace(/[^\d]/g, '')
-  const currentYear = new Date().getFullYear().toString()
-  
+  if (!dateInput) return "";
+
+  const cleanDate = dateInput.replace(/[^\d]/g, "");
+  const currentYear = new Date().getFullYear().toString();
+
   if (cleanDate.length === 8) {
     // YYYYMMDD format
-    const year = cleanDate.slice(0, 4)
-    const month = cleanDate.slice(4, 6)
-    const day = cleanDate.slice(6, 8)
-    
+    const year = cleanDate.slice(0, 4);
+    const month = cleanDate.slice(4, 6);
+    const day = cleanDate.slice(6, 8);
+
     // Basic validation
-    const monthNum = parseInt(month, 10)
-    const dayNum = parseInt(day, 10)
+    const monthNum = parseInt(month, 10);
+    const dayNum = parseInt(day, 10);
     if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) {
-      return ''
+      return "";
     }
-    
-    return `${year}/${month}/${day}`
+
+    return `${year}/${month}/${day}`;
   } else if (cleanDate.length === 4) {
     // MMDD format - use current year
-    const month = cleanDate.slice(0, 2)
-    const day = cleanDate.slice(2, 4)
-    
+    const month = cleanDate.slice(0, 2);
+    const day = cleanDate.slice(2, 4);
+
     // Basic validation
-    const monthNum = parseInt(month, 10)
-    const dayNum = parseInt(day, 10)
+    const monthNum = parseInt(month, 10);
+    const dayNum = parseInt(day, 10);
     if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) {
-      return ''
+      return "";
     }
-    
-    return `${currentYear}/${month}/${day}`
+
+    return `${currentYear}/${month}/${day}`;
   }
-  
+
   // Return empty if format doesn't match
-  return ''
+  return "";
 }
 
 /**
@@ -149,20 +156,21 @@ export function formatDateInput(dateInput: string): string {
  */
 export function sanitizeFileName(fileName: string): string {
   // ファイル名と拡張子を分離
-  const lastDotIndex = fileName.lastIndexOf('.')
-  const name = lastDotIndex !== -1 ? fileName.substring(0, lastDotIndex) : fileName
-  const extension = lastDotIndex !== -1 ? fileName.substring(lastDotIndex) : ''
-  
+  const lastDotIndex = fileName.lastIndexOf(".");
+  const name =
+    lastDotIndex !== -1 ? fileName.substring(0, lastDotIndex) : fileName;
+  const extension = lastDotIndex !== -1 ? fileName.substring(lastDotIndex) : "";
+
   // 英数字とハイフン、アンダースコアのみを許可
-  const cleanName = name.replace(/[^a-zA-Z0-9\-_]/g, '')
-  
+  const cleanName = name.replace(/[^a-zA-Z0-9\-_]/g, "");
+
   // 空になった場合や非英数字が多い場合はハッシュを使用
   if (cleanName.length < VALIDATION.MIN_FILENAME_LENGTH) {
-    const hash = generateSimpleHash(name)
-    return `file_${hash}${extension}`
+    const hash = generateSimpleHash(name);
+    return `file_${hash}${extension}`;
   }
-  
-  return `${cleanName}${extension}`
+
+  return `${cleanName}${extension}`;
 }
 
 /**
@@ -171,15 +179,14 @@ export function sanitizeFileName(fileName: string): string {
  * @returns ハッシュ値（英数字）
  */
 function generateSimpleHash(str: string): string {
-  let hash = 0
+  let hash = 0;
   for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
-    hash = hash & hash // 32bit整数に変換
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // 32bit整数に変換
   }
-  return Math.abs(hash).toString(36).substring(0, 8)
+  return Math.abs(hash).toString(36).substring(0, 8);
 }
-
 
 /**
  * ボットトークンを使用してSlackからファイルをダウンロード
@@ -187,14 +194,17 @@ function generateSimpleHash(str: string): string {
  * @param token - Slackボットトークン
  * @returns Promise<ArrayBuffer> - ArrayBuffer形式のファイル内容
  */
-export async function getSlackFile(fileUrl: string, token: string): Promise<ArrayBuffer> {
+export async function getSlackFile(
+  fileUrl: string,
+  token: string,
+): Promise<ArrayBuffer> {
   const response = await fetch(fileUrl, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
+    headers: { Authorization: `Bearer ${token}` },
+  });
   if (!response.ok) {
-    throw new Error(`Failed to fetch file: ${response.status}`)
+    throw new Error(`Failed to fetch file: ${response.status}`);
   }
-  return response.arrayBuffer()
+  return response.arrayBuffer();
 }
 
 /**
@@ -208,20 +218,20 @@ export async function sendSlackMessage(
   token: string,
   channel: string,
   threadTs: string | undefined,
-  text: string
+  text: string,
 ): Promise<void> {
   await fetch(ENDPOINTS.SLACK_API.CHAT_POST_MESSAGE, {
-    method: 'POST',
+    method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       channel,
       thread_ts: threadTs,
-      text
-    })
-  })
+      text,
+    }),
+  });
 }
 
 /**
@@ -237,21 +247,21 @@ export async function sendInteractiveMessage(
   channel: string,
   threadTs: string | undefined,
   text: string,
-  blocks: any[]
+  blocks: any[],
 ): Promise<void> {
-  await fetch('https://slack.com/api/chat.postMessage', {
-    method: 'POST',
+  await fetch("https://slack.com/api/chat.postMessage", {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       channel,
       thread_ts: threadTs,
       text,
-      blocks
-    })
-  })
+      blocks,
+    }),
+  });
 }
 
 /**
@@ -260,78 +270,9 @@ export async function sendInteractiveMessage(
  * @param isPending - 保留中かどうか
  * @returns Slack Block Kit blocks
  */
-export function createEditButtons(entryId: number | undefined, isPending: boolean = false): any[] {
-  const actionId = isPending ? 'pending' : 'edit'
-  
-  return [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: "🔧 *何を修正しますか？*"
-      }
-    },
-    {
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: "📅 日付",
-            emoji: true
-          },
-          style: "primary",
-          action_id: `${actionId}_date`,
-          value: entryId?.toString() || "pending"
-        },
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: "📝 タイトル",
-            emoji: true
-          },
-          action_id: `${actionId}_title`,
-          value: entryId?.toString() || "pending"
-        },
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: "🔗 リンク",
-            emoji: true
-          },
-          action_id: `${actionId}_link`,
-          value: entryId?.toString() || "pending"
-        }
-      ]
-    },
-    {
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: "🗑️ 削除",
-            emoji: true
-          },
-          style: "danger",
-          action_id: `${actionId}_delete`,
-          value: entryId?.toString() || "pending"
-        },
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: "❌ キャンセル",
-            emoji: true
-          },
-          action_id: `${actionId}_cancel`,
-          value: entryId?.toString() || "pending"
-        }
-      ]
-    }
-  ]
+export function createEditButtons(
+  entryId: number | undefined,
+  isPending: boolean = false,
+): any[] {
+  return BLOCK_TEMPLATES.EDIT_BUTTONS(entryId, isPending);
 }

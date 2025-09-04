@@ -1,4 +1,4 @@
-import type { Bindings, ThreadData, LabEntry } from '../types'
+import type { Bindings, ThreadData, LabEntry } from "../types";
 
 /**
  * スレッドデータをKVに保存
@@ -6,8 +6,12 @@ import type { Bindings, ThreadData, LabEntry } from '../types'
  * @param threadTs - Slack thread timestamp
  * @param data - Thread data to store
  */
-export async function storeThreadData(env: Bindings, threadTs: string, data: ThreadData): Promise<void> {
-  await env.THREADS_KV.put(`thread:${threadTs}`, JSON.stringify(data))
+export async function storeThreadData(
+  env: Bindings,
+  threadTs: string,
+  data: ThreadData,
+): Promise<void> {
+  await env.THREADS_KV.put(`thread:${threadTs}`, JSON.stringify(data));
 }
 
 /**
@@ -16,9 +20,12 @@ export async function storeThreadData(env: Bindings, threadTs: string, data: Thr
  * @param threadTs - Slack thread timestamp
  * @returns Thread data or null if not found
  */
-export async function getThreadData(env: Bindings, threadTs: string): Promise<ThreadData | null> {
-  const data = await env.THREADS_KV.get(`thread:${threadTs}`)
-  return data ? JSON.parse(data) : null
+export async function getThreadData(
+  env: Bindings,
+  threadTs: string,
+): Promise<ThreadData | null> {
+  const data = await env.THREADS_KV.get(`thread:${threadTs}`);
+  return data ? JSON.parse(data) : null;
 }
 
 /**
@@ -26,8 +33,11 @@ export async function getThreadData(env: Bindings, threadTs: string): Promise<Th
  * @param env - Environment bindings
  * @param threadTs - Slack thread timestamp
  */
-export async function deleteThreadData(env: Bindings, threadTs: string): Promise<void> {
-  await env.THREADS_KV.delete(`thread:${threadTs}`)
+export async function deleteThreadData(
+  env: Bindings,
+  threadTs: string,
+): Promise<void> {
+  await env.THREADS_KV.delete(`thread:${threadTs}`);
 }
 
 /**
@@ -37,10 +47,14 @@ export async function deleteThreadData(env: Bindings, threadTs: string): Promise
  * @param updates - Partial updates to apply
  * @returns Updated entries array
  */
-export function updateEntryById(entries: LabEntry[], entryId: number, updates: Partial<LabEntry>): LabEntry[] {
-  return entries.map(entry => 
-    entry.id === entryId ? { ...entry, ...updates } : entry
-  )
+export function updateEntryById(
+  entries: LabEntry[],
+  entryId: number,
+  updates: Partial<LabEntry>,
+): LabEntry[] {
+  return entries.map((entry) =>
+    entry.id === entryId ? { ...entry, ...updates } : entry,
+  );
 }
 
 /**
@@ -49,8 +63,11 @@ export function updateEntryById(entries: LabEntry[], entryId: number, updates: P
  * @param entryId - Entry ID to delete
  * @returns Updated entries array
  */
-export function deleteEntryById(entries: LabEntry[], entryId: number): LabEntry[] {
-  return entries.filter(entry => entry.id !== entryId)
+export function deleteEntryById(
+  entries: LabEntry[],
+  entryId: number,
+): LabEntry[] {
+  return entries.filter((entry) => entry.id !== entryId);
 }
 
 /**
@@ -59,7 +76,10 @@ export function deleteEntryById(entries: LabEntry[], entryId: number): LabEntry[
  * @param entryId - Entry ID to find
  * @returns Image file path or null if not found
  */
-export function getImagePathByEntryId(entries: LabEntry[], entryId: number): string | null {
-  const entry = entries.find(e => e.id === entryId)
-  return entry ? entry.image : null
+export function getImagePathByEntryId(
+  entries: LabEntry[],
+  entryId: number,
+): string | null {
+  const entry = entries.find((e) => e.id === entryId);
+  return entry ? entry.image : null;
 }

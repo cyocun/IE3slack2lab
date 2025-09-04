@@ -1,15 +1,15 @@
-import type { Bindings } from '../types'
-import { sendSlackMessage } from './slack'
+import type { Bindings } from "../types";
+import { sendSlackMessage } from "./slack";
 
 /**
  * 一般的なエラーハンドリング用のユーティリティ
  */
 
 export interface ErrorHandlerOptions {
-  env: Bindings
-  channel: string
-  threadTs: string
-  operation: string
+  env: Bindings;
+  channel: string;
+  threadTs: string;
+  operation: string;
 }
 
 /**
@@ -17,22 +17,22 @@ export interface ErrorHandlerOptions {
  */
 export async function handleError(
   error: unknown,
-  options: ErrorHandlerOptions
+  options: ErrorHandlerOptions,
 ): Promise<void> {
-  const { env, channel, threadTs, operation } = options
-  const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-  
-  console.error(`${operation} error:`, error)
-  
-  let detailedError = `❌ ${operation}でエラーが発生しました: ${errorMessage}`
-  
+  const { env, channel, threadTs, operation } = options;
+  const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
+  console.error(`${operation} error:`, error);
+
+  let detailedError = `❌ ${operation}でエラーが発生しました: ${errorMessage}`;
+
   // エラースタックの表示（開発時のみ）
   if (error instanceof Error && error.stack) {
-    const stackLines = error.stack.split('\n').slice(0, 3)
-    detailedError += `\n\`\`\`\n${stackLines.join('\n')}\n\`\`\``
+    const stackLines = error.stack.split("\n").slice(0, 3);
+    detailedError += `\n\`\`\`\n${stackLines.join("\n")}\n\`\`\``;
   }
-  
-  await sendSlackMessage(env.SLACK_BOT_TOKEN, channel, threadTs, detailedError)
+
+  await sendSlackMessage(env.SLACK_BOT_TOKEN, channel, threadTs, detailedError);
 }
 
 /**
@@ -42,10 +42,10 @@ export class GitHubAPIError extends Error {
   constructor(
     public status: number,
     public response: string,
-    public operation: string
+    public operation: string,
   ) {
-    super(`GitHub API error: ${status} - ${response.substring(0, 100)}`)
-    this.name = 'GitHubAPIError'
+    super(`GitHub API error: ${status} - ${response.substring(0, 100)}`);
+    this.name = "GitHubAPIError";
   }
 }
 
@@ -54,12 +54,16 @@ export class GitHubAPIError extends Error {
  */
 export async function validateGitHubResponse(
   response: Response,
-  operation: string
+  operation: string,
 ): Promise<void> {
   if (!response.ok) {
-    const errorText = await response.text()
-    console.error(`GitHub API error (${operation}):`, response.status, errorText)
-    throw new GitHubAPIError(response.status, errorText, operation)
+    const errorText = await response.text();
+    console.error(
+      `GitHub API error (${operation}):`,
+      response.status,
+      errorText,
+    );
+    throw new GitHubAPIError(response.status, errorText, operation);
   }
 }
 
@@ -68,13 +72,13 @@ export async function validateGitHubResponse(
  */
 export async function safeAsyncOperation<T>(
   operation: () => Promise<T>,
-  options: ErrorHandlerOptions
+  options: ErrorHandlerOptions,
 ): Promise<T | null> {
   try {
-    return await operation()
+    return await operation();
   } catch (error) {
-    await handleError(error, options)
-    return null
+    await handleError(error, options);
+    return null;
   }
 }
 
@@ -83,8 +87,8 @@ export async function safeAsyncOperation<T>(
  */
 export class ValidationError extends Error {
   constructor(field: string, value: string, expected: string) {
-    super(`Invalid ${field}: received "${value}", expected ${expected}`)
-    this.name = 'ValidationError'
+    super(`Invalid ${field}: received "${value}", expected ${expected}`);
+    this.name = "ValidationError";
   }
 }
 
@@ -93,10 +97,10 @@ export class ValidationError extends Error {
  */
 export function validateDateFormat(date: string): void {
   if (!date) {
-    throw new ValidationError('date', date, 'YYYYMMDD or MMDD format')
+    throw new ValidationError("date", date, "YYYYMMDD or MMDD format");
   }
-  
+
   if (!/^\d{4}\/\d{2}\/\d{2}$/.test(date)) {
-    throw new ValidationError('date format', date, 'YYYY/MM/DD format')
+    throw new ValidationError("date format", date, "YYYY/MM/DD format");
   }
 }
