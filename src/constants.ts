@@ -1,6 +1,27 @@
 /**
  * アプリケーション全体で使用する定数
  */
+
+/**
+ * GitHubコミット用のBot情報
+ */
+export const GITHUB_BOT = {
+  name: "IE3 Lab Postman",
+  email: "dev@ie3.jp",
+} as const;
+
+/**
+ * KV Storage設定
+ */
+export const KV_CONFIG = {
+  // スレッドデータの有効期限（秒）
+  THREAD_TTL: 86400, // 24時間
+  // 編集中データの有効期限（秒）  
+  EDITING_TTL: 7200, // 2時間
+  // 完了後データの有効期限（秒）
+  COMPLETED_TTL: 259200, // 3日間（編集・削除のため長めに保持）
+} as const;
+
 export const MESSAGES = {
   ERRORS: {
     UNAUTHORIZED: "Unauthorized",

@@ -1,5 +1,5 @@
 import type { Bindings, LabEntry } from "../types";
-import { VALIDATION } from "../constants";
+import { VALIDATION, GITHUB_BOT } from "../constants";
 
 /**
  * 画像とJSONデータをGitHubリポジトリにアップロード
@@ -159,6 +159,16 @@ export async function uploadToGitHub(
         message: `🧪 lab: Add lab image: ${fileName}`,
         tree: newTreeData.sha,
         parents: [currentCommitSha],
+        author: {
+          name: GITHUB_BOT.name,
+          email: GITHUB_BOT.email,
+          date: new Date().toISOString(),
+        },
+        committer: {
+          name: GITHUB_BOT.name,
+          email: GITHUB_BOT.email,
+          date: new Date().toISOString(),
+        },
       }),
     },
   );
@@ -426,6 +436,16 @@ export async function updateJsonOnGitHub(
         message: commitMessage,
         tree: newTreeData.sha,
         parents: [commitSha],
+        author: {
+          name: GITHUB_BOT.name,
+          email: GITHUB_BOT.email,
+          date: new Date().toISOString(),
+        },
+        committer: {
+          name: GITHUB_BOT.name,
+          email: GITHUB_BOT.email,
+          date: new Date().toISOString(),
+        },
       }),
     },
   );
@@ -656,6 +676,16 @@ export async function deleteImageAndUpdateJson(
         message: commitMessage,
         tree: newTreeData.sha,
         parents: [currentCommitSha],
+        author: {
+          name: GITHUB_BOT.name,
+          email: GITHUB_BOT.email,
+          date: new Date().toISOString(),
+        },
+        committer: {
+          name: GITHUB_BOT.name,
+          email: GITHUB_BOT.email,
+          date: new Date().toISOString(),
+        },
       }),
     },
   );

@@ -14,7 +14,7 @@ import {
   handleDeleteEntry,
   confirmDelete,
 } from "./flowHandler";
-import { MESSAGES, BLOCK_TEMPLATES } from "../constants";
+import { MESSAGES, BLOCK_TEMPLATES, KV_CONFIG } from "../constants";
 
 /**
  * ボタンインタラクション処理
@@ -30,9 +30,28 @@ export async function handleButtonInteraction(
     const channel = payload.channel.id;
     const threadTs = payload.message.thread_ts || payload.message.ts;
 
-    const flowData = (await getThreadData(env, threadTs)) as FlowData;
+    let flowData = (await getThreadData(env, threadTs)) as FlowData;
 
-    if (!flowData) {
+    // 削除・編集系の操作の場合、flowDataがなくてもボタンのvalueからentryIdを取得可能
+    const needsEntryId = [
+      "edit_entry",
+      "delete_entry",
+      "confirm_delete",
+      "edit_date",
+      "edit_title",
+      "edit_link",
+    ].includes(actionId);
+
+    if (!flowData && needsEntryId && action.value) {
+      // KVデータが期限切れの場合、最小限のデータを作成
+      flowData = {
+        messageTs: threadTs,
+        channel: channel,
+        createdAt: new Date().toISOString(),
+        flowState: FLOW_STATE.COMPLETED,
+        entryId: parseInt(action.value, 10),
+      } as FlowData;
+    } else if (!flowData) {
       await sendColoredSlackMessage(
         env.SLACK_BOT_TOKEN,
         channel,
@@ -135,7 +154,7 @@ async function handleSkipTitle(
 ): Promise<void> {
   flowData.collectedData = { ...flowData.collectedData, title: "" };
   flowData.flowState = FLOW_STATE.WAITING_LINK;
-  await storeThreadData(env, threadTs, flowData);
+  await storeThreadData(env, threadTs, flowData, KV_CONFIG.EDITING_TTL);
 
   const blocks = BLOCK_TEMPLATES.LINK_INPUT(
     flowData.collectedData?.date || "",
@@ -176,7 +195,7 @@ async function handleEditFieldSelection(
 
   flowData.flowState = FLOW_STATE.EDITING;
   flowData.editingField = field;
-  await storeThreadData(env, threadTs, flowData);
+  await storeThreadData(env, threadTs, flowData, KV_CONFIG.EDITING_TTL);
 
   const prompts = {
     date: MESSAGES.PROMPTS.EDIT_DATE,
@@ -202,7 +221,7 @@ async function handleCancelEdit(
 ): Promise<void> {
   flowData.flowState = FLOW_STATE.COMPLETED;
   delete flowData.editingField;
-  await storeThreadData(env, threadTs, flowData);
+  await storeThreadData(env, threadTs, flowData, KV_CONFIG.COMPLETED_TTL);
   await sendCancelMessage(env, flowData, threadTs);
 }
 
@@ -235,7 +254,7 @@ async function handleTodayDate(
   // フローデータを更新
   flowData.collectedData = { ...flowData.collectedData, date: todayDate };
   flowData.flowState = FLOW_STATE.WAITING_TITLE;
-  await storeThreadData(env, threadTs, flowData);
+  await storeThreadData(env, threadTs, flowData, KV_CONFIG.EDITING_TTL);
 
   const blocks = BLOCK_TEMPLATES.TITLE_INPUT();
 

@@ -5,13 +5,17 @@ import type { Bindings, ThreadData, LabEntry } from "../types";
  * @param env - Environment bindings
  * @param threadTs - Slack thread timestamp
  * @param data - Thread data to store
+ * @param ttl - Time to live in seconds (default: 24 hours)
  */
 export async function storeThreadData(
   env: Bindings,
   threadTs: string,
   data: ThreadData,
+  ttl: number = 86400, // 24時間後に自動削除
 ): Promise<void> {
-  await env.THREADS_KV.put(`thread:${threadTs}`, JSON.stringify(data));
+  await env.THREADS_KV.put(`thread:${threadTs}`, JSON.stringify(data), {
+    expirationTtl: ttl,
+  });
 }
 
 /**

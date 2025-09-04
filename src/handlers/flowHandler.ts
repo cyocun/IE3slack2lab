@@ -29,6 +29,7 @@ import {
   BLOCK_TEMPLATES,
   MessageUtils,
   ENDPOINTS,
+  KV_CONFIG,
 } from "../constants";
 
 export const FLOW_STATE = {
@@ -106,7 +107,7 @@ export async function handleInitialImageUpload(
       collectedData: {},
     };
 
-    await storeThreadData(env, event.ts, flowData);
+    await storeThreadData(env, event.ts, flowData, KV_CONFIG.THREAD_TTL);
 
     // ランダム褒めメッセージと日付入力を促す
     const blocks = BLOCK_TEMPLATES.DATE_INPUT(MessageUtils.getRandomPraise("initial"));
@@ -187,7 +188,7 @@ async function handleDateInput(
   // 日付を保存して次のステップへ
   flowData.collectedData = { ...flowData.collectedData, date: formattedDate };
   flowData.flowState = FLOW_STATE.WAITING_TITLE;
-  await storeThreadData(env, threadTs, flowData);
+  await storeThreadData(env, threadTs, flowData, KV_CONFIG.THREAD_TTL);
 
   const blocks = BLOCK_TEMPLATES.TITLE_INPUT();
 
@@ -216,7 +217,7 @@ async function handleTitleInput(
   // タイトルを保存
   flowData.collectedData = { ...flowData.collectedData, title: titleValue };
   flowData.flowState = FLOW_STATE.WAITING_LINK;
-  await storeThreadData(env, threadTs, flowData);
+  await storeThreadData(env, threadTs, flowData, KV_CONFIG.THREAD_TTL);
 
   const blocks = BLOCK_TEMPLATES.LINK_INPUT(
     flowData.collectedData?.date || "",
@@ -329,7 +330,7 @@ export async function completeUpload(
     // フロー状態を更新
     flowData.flowState = FLOW_STATE.COMPLETED;
     flowData.entryId = newId;
-    await storeThreadData(env, threadTs, flowData);
+    await storeThreadData(env, threadTs, flowData, KV_CONFIG.COMPLETED_TTL);
 
     // 完了メッセージ（ボタン付き）
     const successText = buildSuccessMessage(
@@ -567,7 +568,7 @@ async function handleEditInput(
     };
   }
 
-  await storeThreadData(env, threadTs, flowData);
+  await storeThreadData(env, threadTs, flowData, KV_CONFIG.COMPLETED_TTL);
 
   // 完了メッセージ
   await sendColoredSlackMessage(
