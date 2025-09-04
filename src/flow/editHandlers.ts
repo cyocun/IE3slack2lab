@@ -10,6 +10,7 @@ import { validateDateInput, validateLinkInput } from "./flowValidation";
 import { sendColoredSlackMessage, sendInteractiveMessage } from "../utils/slack";
 import { getCurrentJsonData, updateJsonOnGitHub, deleteImageAndUpdateJson } from "../github";
 import { storeThreadData, deleteThreadData, updateEntryById, deleteEntryById, getImagePathByEntryId } from "../utils/kv";
+import { toRepoImagePath } from "../utils/paths";
 import { MESSAGES, KV_CONFIG, COMMIT_PREFIXES, BUTTONS } from "../constants";
 import { MessageUtils } from "../utils/messageFormatter";
 
@@ -290,10 +291,8 @@ export async function confirmDelete(
 
     // 画像ファイル削除とJSON更新を1つのコミットで実行
     if (imagePath) {
-      // imagePathは"/images/2025/09/..."の形式
-      // GitHubのリポジトリパスは"public/images/2025/..."なので変換
-      let cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
-      cleanPath = `public/${cleanPath}`;
+      // imagePathは"/images/..." → リポジトリパス "public/images/..." に変換
+      const cleanPath = toRepoImagePath(env.IMAGE_PATH, imagePath);
 
       await deleteImageAndUpdateJson(
         env,

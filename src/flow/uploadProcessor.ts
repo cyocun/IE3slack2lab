@@ -9,6 +9,7 @@ import { FLOW_STATE } from "./flowStates";
 import { buildSuccessMessage } from "./flowMessages";
 import { sendSlackMessage, sendColoredSlackMessage, getSlackFile, sanitizeFileName } from "../utils/slack";
 import { uploadToGitHub, getCurrentJsonData } from "../github";
+import { toSiteImagePath } from "../utils/paths";
 import { optimizeImage, changeExtensionToWebP } from "../utils/imageOptimizer";
 import { storeThreadData } from "../utils/kv";
 import { MESSAGES, ENDPOINTS, KV_CONFIG, LOG_MESSAGES, BACKGROUND_MESSAGES, BUTTONS, IMAGE_CONFIG } from "../constants";
@@ -82,7 +83,7 @@ export async function completeUpload(
 
     newEntry = {
       id: newId,
-      image: `/${env.IMAGE_PATH.replace('public/', '')}${fullPath}`,
+      image: toSiteImagePath(env.IMAGE_PATH, fullPath),
       title: flowData.collectedData.title || "",
       datetime: flowData.collectedData.date.replace(/\//g, "-"),
       link: flowData.collectedData.link || "",

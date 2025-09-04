@@ -8,6 +8,7 @@ import type { GitHubFile } from "./types";
 import { createAuthHeaders, handleGitHubApiError } from "./githubApi";
 import { createGitHubUrlBuilder } from "./urlBuilder";
 import { GITHUB_BOT } from "../constants";
+import { base64ToUtf8, utf8ToBase64 } from "../utils/encoding";
 
 /**
  * 現在のJSONデータを取得
@@ -66,41 +67,7 @@ export async function getCurrentJsonData(env: Bindings): Promise<LabEntry[]> {
   }
 }
 
-/**
- * Base64文字列をUTF-8に変換
- */
-function base64ToUtf8(base64: string): string {
-  try {
-    if (!base64 || typeof base64 !== 'string') {
-      throw new Error('Invalid base64 input');
-    }
-    
-    const cleanBase64 = base64.replace(/\s/g, '');
-    if (!cleanBase64) {
-      throw new Error('Empty base64 content');
-    }
-    
-    const binaryString = atob(cleanBase64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return new TextDecoder('utf-8').decode(bytes);
-  } catch (error) {
-    console.error('Base64 decode error:', error);
-    throw new Error('Failed to decode base64 content');
-  }
-}
-
-/**
- * UTF-8文字列をBase64に変換
- */
-function utf8ToBase64(text: string): string {
-  const encoder = new TextEncoder();
-  const bytes = encoder.encode(text);
-  const binaryString = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
-  return btoa(binaryString);
-}
+// moved base64 helpers to utils/encoding
 
 /**
  * JSONファイルをGitHubで更新

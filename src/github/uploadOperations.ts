@@ -7,6 +7,7 @@ import type { Bindings, LabEntry } from "../types";
 import type { GitHubBlob, GitHubTree, GitHubCommit } from "./types";
 import { GITHUB_BOT, COMMIT_PREFIXES } from "../constants";
 import { createJsonHeaders, getCurrentCommitSha, getCommitDetails, handleGitHubApiError } from "./githubApi";
+import { utf8ToBase64 } from "../utils/encoding";
 import { createGitHubUrlBuilder } from "./urlBuilder";
 
 /**
@@ -28,12 +29,7 @@ export async function convertArrayBufferToBase64(buffer: ArrayBuffer): Promise<s
 /**
  * UTF-8文字列をBase64に変換
  */
-export function utf8ToBase64(text: string): string {
-  const encoder = new TextEncoder();
-  const bytes = encoder.encode(text);
-  const binaryString = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
-  return btoa(binaryString);
-}
+// utf8ToBase64 moved to utils/encoding
 
 /**
  * 画像とJSONデータをGitHubリポジトリにアップロード

@@ -22,8 +22,8 @@ export {
 export {
   uploadToGitHub,
   convertArrayBufferToBase64,
-  utf8ToBase64,
 } from "./uploadOperations";
+export { utf8ToBase64 } from "../utils/encoding";
 
 // 削除操作
 export {

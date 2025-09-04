@@ -7,7 +7,7 @@ import type { Bindings, LabEntry } from "../types";
 import type { GitHubFile, GitHubBlob, GitHubTree, GitHubCommit } from "./types";
 import { GITHUB_BOT } from "../constants";
 import { createAuthHeaders, createJsonHeaders, getCurrentCommitSha, getCommitDetails, handleGitHubApiError } from "./githubApi";
-import { utf8ToBase64 } from "./uploadOperations";
+import { utf8ToBase64 } from "../utils/encoding";
 import { createGitHubUrlBuilder } from "./urlBuilder";
 
 /**
