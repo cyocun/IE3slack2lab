@@ -4,12 +4,12 @@ Slackから投稿された画像をGitHubリポジトリにアップロードし
 
 ## 機能
 
-- 📤 Slack投稿の画像を自動リサイズしてGitHubにアップロード
-- 📝 タイトル、日付、リンクのメタデータ管理
-- ✏️ スレッドでの投稿編集機能
-- 🗑️ スレッドでの削除機能
-- ❌ フォーマットエラー時の自動ガイド
-- 🔒 TypeScriptによる型安全性
+- 📤 **インタラクティブ画像アップロード**: Slackで画像投稿後、ステップバイステップでメタデータ入力
+- 💬 **チャット形式フロー**: 日付→タイトル→リンクの順で対話的に入力
+- ✏️ **リアルタイム編集**: 投稿完了後にボタンで個別フィールドを編集
+- 🗑️ **安全な削除**: 確認ダイアログ付きで画像ファイルとメタデータを完全削除
+- 🎯 **スキップ機能**: タイトルとリンクは任意入力（スキップボタンで省略可能）
+- 🔒 **TypeScript型安全性**: 完全な型定義とコンパイル時エラー検出
 
 ## セットアップ
 
@@ -25,7 +25,9 @@ Slackから投稿された画像をGitHubリポジトリにアップロードし
    Request URL と **Enable Events** の設定は後の手順で行います
    - `file_shared`
    - `message.channels`
-4. **OAuth & Permissions** で発行された **Bot User OAuth Token** と、**Basic Information** > **App Credentials** にある **Signing Secret** を控える
+4. サイドメニューの **Interactivity & Shortcuts** を開き、「Interactivity」をオンに設定
+   Request URL は後の手順で設定します
+5. **OAuth & Permissions** で発行された **Bot User OAuth Token** と、**Basic Information** > **App Credentials** にある **Signing Secret** を控える
 
 ### 2. GitHub設定
 
@@ -47,6 +49,10 @@ npm install
 # TypeScriptビルド
 npm run build
 
+# KVネームスペース作成
+wrangler kv:namespace create "THREADS_KV"
+wrangler kv:namespace create "THREADS_KV" --preview
+
 # シークレット設定
 wrangler secret put SLACK_BOT_TOKEN
 wrangler secret put SLACK_SIGNING_SECRET
@@ -60,37 +66,54 @@ wrangler deploy
 
 ### 4. Slack App設定更新
 
-1. Event Subscriptionsで **Enable Events** をオンにし、Request URLに`https://your-worker.workers.dev/slack/events`を設定
-2. Verificationが成功したら **Save Changes** をクリック
+1. **Event Subscriptions** で **Enable Events** をオンにし、Request URLに`https://your-worker.workers.dev/slack/events`を設定
+2. **Interactivity & Shortcuts** で Request URLに`https://your-worker.workers.dev/slack/interactive`を設定
+3. 両方のVerificationが成功したら **Save Changes** をクリック
 
 ## 使用方法
 
-### 新規投稿
+### インタラクティブフロー
 
-Slackで画像を添付して以下の形式で投稿:
+1. **画像アップロード**: 
+   Slackチャンネルに画像ファイルをアップロード（テキストは不要）
 
-```
-date: 20240115
-title: 新商品リリース
-link: https://example.com
-```
+2. **日付入力**:
+   ```
+   📅 日付を入力してください (YYYYMMDD)
+   ```
+   - `YYYYMMDD`: 20241225 → 2024/12/25
+   - `MMDD`: 1225 → 2025/12/25 (現在の西暦を自動設定)
+   - **必須入力**（スキップ不可）
 
-**日付フォーマット**:
-- `YYYYMMDD`: 20241225
-- `MMDD`: 1225 (現在の西暦を自動設定)
+3. **タイトル入力**:
+   ```
+   📝 タイトルを入力してください (スキップ可能)
+   ```
+   - 任意のテキストを入力
+   - 「📝 スキップ」ボタンで省略可能
 
-### 更新
+4. **リンク入力**:
+   ```
+   🔗 リンクを入力してください (スキップ可能)
+   ```
+   - URL形式のリンクを入力
+   - 「🔗 スキップ」ボタンで省略可能
 
-投稿のスレッドで更新内容を送信:
+5. **アップロード完了**:
+   緑色のサイドバー付きで完了メッセージが表示され、以下のボタンが利用可能：
+   - **✏️ 編集**: 個別フィールドの編集
+   - **🗑️ 削除**: エントリと画像ファイルの削除
 
-```
-title: 更新後のタイトル
-date: 20240120
-```
+### 編集・削除操作
 
-### 削除
+**編集**:
+- ✏️ボタンをクリック後、編集したいフィールド（日付/タイトル/リンク）を選択
+- 新しい値を入力してエンター
 
-投稿のスレッドで`delete`と送信
+**削除**:
+- 🗑️ボタンをクリック
+- 確認ダイアログで「🗑️ 削除実行」を選択
+- JSONエントリと画像ファイルの両方が削除されます
 
 ## 開発
 
@@ -114,9 +137,14 @@ npm run format
 src/
 ├── index.ts              # メインエントリーポイント（Honoアプリケーション）
 ├── types.ts              # 型定義
+├── constants.ts          # 定数・メッセージテンプレート
+├── handlers/
+│   ├── flowHandler.ts    # インタラクティブフロー処理
+│   └── buttonHandler.ts  # ボタンインタラクション処理
 └── utils/
     ├── slack.ts          # Slack API関連ユーティリティ
-    └── github.ts         # GitHub API関連ユーティリティ
+    ├── github.ts         # GitHub API関連ユーティリティ
+    └── kv.ts            # KVストレージ・データ操作ユーティリティ
 ```
 
 ## 技術スタック
@@ -124,7 +152,12 @@ src/
 - **フレームワーク**: [Hono](https://hono.dev/) - 軽量で高速なWebフレームワーク
 - **実行環境**: Cloudflare Workers
 - **言語**: TypeScript
-- **API統合**: Slack Events API, GitHub Contents API
+- **ストレージ**: Cloudflare KV（スレッド状態管理）
+- **API統合**: 
+  - Slack Events API（メッセージ処理）
+  - Slack Interactive Components（ボタン処理）
+  - GitHub Contents API（ファイル管理）
+  - GitHub Tree API（一括コミット）
 
 ## ライセンス
 

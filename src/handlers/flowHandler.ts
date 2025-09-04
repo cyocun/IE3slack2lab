@@ -26,8 +26,6 @@ import {
 } from "../utils/kv";
 import {
   MESSAGES,
-  BUTTONS,
-  UI_TEXT,
   BLOCK_TEMPLATES,
   MessageUtils,
   ENDPOINTS,
@@ -70,14 +68,12 @@ function buildSuccessMessage(
 ): string {
   let message =
     `${MESSAGES.SUCCESS.UPLOAD_COMPLETE}\n\n` +
-    `📸 **ファイル名**: \`${fileName}\`\n` +
-    `🔢 **エントリID**: ${id}\n` +
-    `📅 **日付**: ${date}\n`;
+    `📸 \`${fileName}\`\n` +
+    `🔢 ${id}\n` +
+    `📅 ${date}\n`;
 
-  if (title) message += `📝 **タイトル**: ${title}\n`;
-  if (link) message += `🔗 **リンク**: ${link}\n`;
-
-  message += `\n${MESSAGES.EDIT_INSTRUCTIONS}`;
+  if (title) message += `📝 ${title}\n`;
+  if (link) message += `🔗 ${link}\n`;
 
   return message;
 }
@@ -113,7 +109,7 @@ export async function handleInitialImageUpload(
     await storeThreadData(env, event.ts, flowData);
 
     // ランダム褒めメッセージと日付入力を促す
-    const blocks = BLOCK_TEMPLATES.DATE_INPUT(MessageUtils.getRandomPraise());
+    const blocks = BLOCK_TEMPLATES.DATE_INPUT(MessageUtils.getRandomPraise("initial"));
     await sendInteractiveMessage(
       env.SLACK_BOT_TOKEN,
       event.channel,
@@ -193,29 +189,7 @@ async function handleDateInput(
   flowData.flowState = FLOW_STATE.WAITING_TITLE;
   await storeThreadData(env, threadTs, flowData);
 
-  // タイトル入力を促す
-  const blocks = [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `日付: ${formattedDate} ✅\n\n${MESSAGES.PROMPTS.TITLE_INPUT}`,
-      },
-    },
-    {
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: BUTTONS.SKIP,
-          },
-          action_id: "skip_title",
-        },
-      ],
-    },
-  ];
+  const blocks = BLOCK_TEMPLATES.TITLE_INPUT();
 
   await sendInteractiveMessage(
     env.SLACK_BOT_TOKEN,
@@ -244,33 +218,10 @@ async function handleTitleInput(
   flowData.flowState = FLOW_STATE.WAITING_LINK;
   await storeThreadData(env, threadTs, flowData);
 
-  // リンク入力を促す
-  const blocks = [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: UI_TEXT.FLOW.TITLE_STATUS(
-          flowData.collectedData?.date || "",
-          titleValue,
-        ),
-      },
-    },
-    {
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: BUTTONS.POST_NOW,
-          },
-          style: "primary",
-          action_id: "post_now",
-        },
-      ],
-    },
-  ];
+  const blocks = BLOCK_TEMPLATES.LINK_INPUT(
+    flowData.collectedData?.date || "",
+    titleValue,
+  );
 
   await sendInteractiveMessage(
     env.SLACK_BOT_TOKEN,
@@ -292,7 +243,7 @@ async function handleLinkInput(
   threadTs: string,
 ): Promise<Response> {
   const cleanInput = input.trim();
-  
+
   // URL検証
   if (!isValidUrl(cleanInput)) {
     await sendColoredSlackMessage(
@@ -334,7 +285,7 @@ export async function completeUpload(
 
   try {
     // 処理開始メッセージを送信（褒め言葉付き）
-    const praise = MessageUtils.getRandomPraise();
+    const praise = MessageUtils.getRandomPraise("processing");
     await sendSlackMessage(
       env.SLACK_BOT_TOKEN,
       flowData.channel,
@@ -388,7 +339,7 @@ export async function completeUpload(
       flowData.collectedData.title || "",
       flowData.collectedData.link || "",
     );
-    
+
     // 成功メッセージとボタンを一緒に送信（グリーンサイドバー付き）
     const payload = {
       channel: flowData.channel,
@@ -710,20 +661,25 @@ export async function confirmDelete(
 
   try {
     const currentData = await getCurrentJsonData(env);
-    
+
     // 削除前に画像パスを取得
     const imagePath = getImagePathByEntryId(currentData, flowData.entryId);
-    
+
     // 画像ファイルを削除（存在する場合）
     if (imagePath) {
-      const fullImagePath = `${env.IMAGE_PATH}${imagePath}`;
+      // imagePathは既に/で始まる完全パスなので、先頭の/を除去してからIMAGE_PATHを除去
+      const relativePath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
+      const pathWithoutPrefix = relativePath.startsWith(env.IMAGE_PATH)
+        ? relativePath.substring(env.IMAGE_PATH.length)
+        : relativePath;
+      const fullImagePath = `${env.IMAGE_PATH}${pathWithoutPrefix}`;
       await deleteFileFromGitHub(
         env,
         fullImagePath,
         `Delete image for lab entry ID: ${flowData.entryId}`,
       );
     }
-    
+
     // JSONからエントリを削除
     const updatedData = deleteEntryById(currentData, flowData.entryId);
     await updateJsonOnGitHub(

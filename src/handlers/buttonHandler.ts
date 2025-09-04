@@ -14,7 +14,7 @@ import {
   handleDeleteEntry,
   confirmDelete,
 } from "./flowHandler";
-import { MESSAGES, BUTTONS, UI_TEXT } from "../constants";
+import { MESSAGES, BLOCK_TEMPLATES } from "../constants";
 
 /**
  * ボタンインタラクション処理
@@ -137,33 +137,10 @@ async function handleSkipTitle(
   flowData.flowState = FLOW_STATE.WAITING_LINK;
   await storeThreadData(env, threadTs, flowData);
 
-  // リンク入力を促す（ボタン付き）
-  const blocks = [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: UI_TEXT.FLOW.TITLE_STATUS(
-          flowData.collectedData?.date || "",
-          "なし",
-        ),
-      },
-    },
-    {
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: BUTTONS.POST_NOW,
-          },
-          style: "primary",
-          action_id: "post_now",
-        },
-      ],
-    },
-  ];
+  const blocks = BLOCK_TEMPLATES.LINK_INPUT(
+    flowData.collectedData?.date || "",
+    "なし",
+  );
 
   await sendInteractiveMessage(
     env.SLACK_BOT_TOKEN,
@@ -260,29 +237,7 @@ async function handleTodayDate(
   flowData.flowState = FLOW_STATE.WAITING_TITLE;
   await storeThreadData(env, threadTs, flowData);
 
-  // タイトル入力を促す（ボタン付き）
-  const blocks = [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `${MESSAGES.FLOW_STATUS.DATE_CONFIRMED.replace("{date}", todayDate)}\n\n${MESSAGES.PROMPTS.TITLE_INPUT}`,
-      },
-    },
-    {
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: BUTTONS.SKIP,
-          },
-          action_id: "skip_title",
-        },
-      ],
-    },
-  ];
+  const blocks = BLOCK_TEMPLATES.TITLE_INPUT();
 
   await sendInteractiveMessage(
     env.SLACK_BOT_TOKEN,
