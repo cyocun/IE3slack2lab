@@ -1,5 +1,6 @@
 /**
- * アプリケーション全体で使用する定数
+ * アプリケーション全体で使用する純粋な定数
+ * 関数やテンプレートは別ファイルに分離
  */
 
 /**
@@ -11,17 +12,64 @@ export const GITHUB_BOT = {
 } as const;
 
 /**
+ * API設定
+ */
+export const API_CONFIG = {
+  USER_AGENT: "Slack-to-GitHub-Worker",
+} as const;
+
+/**
+ * コミットメッセージプレフィックス
+ */
+export const COMMIT_PREFIXES = {
+  ADD_IMAGE: "📸 lab: Add lab image:",
+  UPDATE_ENTRY: "✏️ lab: Update lab entry ID:",
+  DELETE_ENTRY: "🗑️ lab: Delete lab entry ID:",
+} as const;
+
+/**
  * KV Storage設定
  */
 export const KV_CONFIG = {
-  // スレッドデータの有効期限（秒）
+  /** スレッドデータの有効期限（秒） */
   THREAD_TTL: 86400, // 24時間
-  // 編集中データの有効期限（秒）
+  /** 編集中データの有効期限（秒） */
   EDITING_TTL: 7200, // 2時間
-  // 完了後データの有効期限（秒）
+  /** 完了後データの有効期限（秒） */
   COMPLETED_TTL: 259200, // 3日間（編集・削除のため長めに保持）
 } as const;
 
+/**
+ * バリデーション設定
+ */
+export const VALIDATION = {
+  MIN_FILENAME_LENGTH: 3,
+  MAX_TIMESTAMP_DIFF: 300, // 5 minutes
+  CHUNK_SIZE: 0x1000,
+} as const;
+
+/**
+ * 外部APIエンドポイント
+ */
+export const ENDPOINTS = {
+  SLACK_API: {
+    CHAT_POST_MESSAGE: "https://slack.com/api/chat.postMessage",
+  },
+} as const;
+
+/**
+ * ボタンテキスト定数
+ */
+export const BUTTONS = {
+  CANCEL_UPLOAD: "❌ 取り消し",
+  SKIP: "スキップ",
+  POST_NOW: "💾 投稿",
+  TODAY: "📅 TODAY!",
+} as const;
+
+/**
+ * アプリケーションメッセージテキスト定数
+ */
 export const MESSAGES = {
   ERRORS: {
     UNAUTHORIZED: "Unauthorized",
@@ -37,16 +85,14 @@ export const MESSAGES = {
     CANCELLED: "キャンセル Done👌",
   },
   PROGRESS: {
-    UPLOAD_PROCESSING: "📤 UP中...\n`完了にならない場合はもう一度投稿押してみて。`",
+    UPLOAD_PROCESSING: "📤 UP中...\n```UP DONEがでない？\nタイムアウトしてるけど終わってるかも。\ncheck it out -> <https://ie3.jp/lab>```",
   },
   PROMPTS: {
     DATE_INPUT: "📅 *いつ？*\n`YYYY/MM/DD、YYYYMMDD、MMDD`",
-    DATE_INVALID:
-      "{input}🤔\n`YYYY/MM/DD、YYYYMMDD、MMDD` で！",
+    DATE_INVALID: "{input}🤔\n`YYYY/MM/DD、YYYYMMDD、MMDD` で！",
     TITLE_INPUT: "📝 *タイトル？*\n「no」でもスキップ",
     LINK_INPUT: "🔗 *リンク？*\n「no」でも投稿",
-    LINK_INVALID:
-      "{input}🤔\nちゃんと書くか、「no」でスキップ",
+    LINK_INVALID: "{input}🤔\nちゃんと書くか、「no」でスキップ",
     EDIT_DATE: "📅 日付 `YYYY/MM/DD、YYYYMMDD、MMDD`",
     EDIT_TITLE: "📝 タイトル（「no」でなし）",
     EDIT_LINK: "🔗 リンク（「no」でなし）",
@@ -89,139 +135,5 @@ export const MESSAGES = {
       title: "タイトル",
       link: "リンク",
     },
-  }
-};
-
-export const BUTTONS = {
-  CANCEL_UPLOAD: "❌ 取り消し",
-  SKIP: "スキップ",
-  POST_NOW: "💾 投稿",
-  TODAY: "📅 TODAY!",
-} ;
-
-
-export const BLOCK_TEMPLATES = {
-  DATE_INPUT: (praise: string) => [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `${praise}\n\n${MESSAGES.PROMPTS.DATE_INPUT}`,
-      },
-    },
-    {
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: BUTTONS.TODAY,
-          },
-          action_id: "today_date",
-        },
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: BUTTONS.CANCEL_UPLOAD,
-          },
-          action_id: "cancel_upload",
-        },
-      ],
-    },
-  ],
-  TITLE_INPUT: () => [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: MESSAGES.PROMPTS.TITLE_INPUT,
-      },
-    },
-    {
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: BUTTONS.SKIP,
-          },
-          action_id: "skip_title",
-        },
-      ],
-    },
-  ],
-  LINK_INPUT: (date: string, title: string) => [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: MESSAGES.PROMPTS.LINK_INPUT,
-      },
-    },
-    {
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: BUTTONS.POST_NOW,
-          },
-          action_id: "post_now",
-        },
-      ],
-    },
-  ],
-};
-
-export const VALIDATION = {
-  MIN_FILENAME_LENGTH: 3,
-  MAX_TIMESTAMP_DIFF: 300, // 5 minutes
-  CHUNK_SIZE: 0x1000,
-};
-
-export const ENDPOINTS = {
-  SLACK_API: {
-    CHAT_POST_MESSAGE: "https://slack.com/api/chat.postMessage",
   },
-};
-
-/**
- * Message utility functions
- */
-export const MessageUtils = {
-  getRandomPraise: (type: "initial" | "processing" = "initial") => {
-    const praise = type === "initial" ? MESSAGES.PRAISE.INITIAL : MESSAGES.PRAISE.PROCESSING;
-    return (
-      praise[Math.floor(Math.random() * praise.length)] ??
-      (type === "initial" ? "素敵な写真ですね！✨" : "準備完了！🚀")
-    );
-  },
-
-  formatDateInvalid: (input: string) =>
-    MESSAGES.PROMPTS.DATE_INVALID.replace("{input}", input),
-
-  formatLinkInvalid: (input: string) =>
-    MESSAGES.PROMPTS.LINK_INVALID.replace("{input}", input),
-
-  formatDeleteConfirm: (id: number) =>
-    MESSAGES.PROMPTS.DELETE_CONFIRM.replace("{id}", id.toString()),
-
-  formatUploadFailed: (message: string) =>
-    MESSAGES.ERROR_HANDLING.UPLOAD_FAILED.replace("{message}", message),
-
-  formatDeleteFailed: (message: string) =>
-    MESSAGES.ERROR_HANDLING.DELETE_FAILED.replace("{message}", message),
-
-  formatUpdateField: (field: "date" | "title" | "link", value: string) =>
-    MESSAGES.COMPLETIONS.UPDATE_FIELD.replace(
-      "{field}",
-      MESSAGES.ERROR_HANDLING.FIELD_NAMES[field],
-    ).replace("{value}", value || "なし"),
-
-  formatDeleteEntry: (id: number) =>
-    MESSAGES.COMPLETIONS.DELETE_ENTRY.replace("{id}", id.toString()),
-};
+} as const;

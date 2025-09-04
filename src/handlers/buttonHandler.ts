@@ -1,26 +1,33 @@
+/**
+ * ボタンインタラクション処理
+ * Slackからのボタン操作イベントを処理
+ */
+
 import type { Context } from "hono";
 import type { Bindings } from "../types";
 import { getThreadData, storeThreadData, deleteThreadData } from "../utils/kv";
+import { okResponse } from "../utils/response";
 import {
   sendSlackMessage,
   sendColoredSlackMessage,
   sendInteractiveMessage,
 } from "../utils/slack";
 import {
-  FlowData,
+  type FlowData,
   FLOW_STATE,
   completeUpload,
   handleEditSelection,
   handleDeleteEntry,
   confirmDelete,
-} from "./flowHandler";
-import { MESSAGES, BLOCK_TEMPLATES, KV_CONFIG } from "../constants";
+} from "../flow";
+import { MESSAGES, KV_CONFIG } from "../constants";
+import { BLOCK_TEMPLATES } from "../ui/slackBlocks";
 
 /**
  * ボタンインタラクション処理
  */
 export async function handleButtonInteraction(
-  c: Context,
+  _c: Context,
   env: Bindings,
   payload: any,
 ): Promise<Response> {
@@ -59,7 +66,7 @@ export async function handleButtonInteraction(
         MESSAGES.ERRORS.DATA_NOT_FOUND,
         "danger",
       );
-      return c.text("OK");
+      return okResponse();
     }
 
     // アクションIDに基づく処理
@@ -111,10 +118,10 @@ export async function handleButtonInteraction(
         break;
     }
 
-    return c.text("OK");
+    return okResponse();
   } catch (error) {
     console.error("Button interaction error:", error);
-    return c.text("OK");
+    return okResponse();
   }
 }
 

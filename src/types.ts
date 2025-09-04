@@ -35,7 +35,8 @@ export interface LabEntry {
 }
 
 /**
- * スレッド管理用のデータ構造
+ * スレッド管理用の基本データ構造
+ * フローデータのベース型として使用
  */
 export interface ThreadData {
   /** エントリID（アップロード済みの場合のみ） */
@@ -46,30 +47,7 @@ export interface ThreadData {
   channel: string;
   /** 作成日時 */
   createdAt: string;
-  /** ファイル情報（アップロード待ち用） */
-  pendingFile?: {
-    url: string;
-    name: string;
-    mimetype: string;
-  };
-  /** パースされたメタデータ（部分的な場合もある） */
-  metadata?: {
-    title?: string;
-    date?: string;
-    url?: string;
-  };
-  /** 編集待ち状態 */
-  waitingForEdit?: {
-    type: EditType;
-    message: string;
-  };
 }
-
-
-/**
- * 編集タイプ
- */
-export type EditType = "date" | "title" | "link";
 
 /**
  * Slack Event API のイベント構造
