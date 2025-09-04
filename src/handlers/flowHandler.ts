@@ -28,6 +28,7 @@ import {
   UI_TEXT,
   BLOCK_TEMPLATES,
   MessageUtils,
+  ENDPOINTS,
 } from "../constants";
 
 export const FLOW_STATE = {
@@ -386,50 +387,56 @@ export async function completeUpload(
       flowData.collectedData.link || "",
     );
     
-    // 成功メッセージとボタンを一緒に送信
-    const blocks = [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
+    // 成功メッセージとボタンを一緒に送信（グリーンサイドバー付き）
+    const payload = {
+      channel: flowData.channel,
+      thread_ts: threadTs,
+      text: "",
+      attachments: [
+        {
+          color: "good",
           text: successText,
+          mrkdwn_in: ["text"],
         },
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: "✏️ 修正",
-              emoji: true,
+      ],
+      blocks: [
+        {
+          type: "actions",
+          elements: [
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "✏️ 修正",
+                emoji: true,
+              },
+              action_id: "edit_entry",
+              value: newId.toString(),
             },
-            action_id: "edit_entry",
-            value: newId.toString(),
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: "🗑️ 削除",
-              emoji: true,
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "🗑️ 削除",
+                emoji: true,
+              },
+              style: "danger",
+              action_id: "delete_entry",
+              value: newId.toString(),
             },
-            style: "danger",
-            action_id: "delete_entry",
-            value: newId.toString(),
-          },
-        ],
-      },
-    ];
+          ],
+        },
+      ],
+    };
 
-    await sendInteractiveMessage(
-      env.SLACK_BOT_TOKEN,
-      flowData.channel,
-      threadTs,
-      "",
-      blocks,
-    );
+    await fetch(ENDPOINTS.SLACK_API.CHAT_POST_MESSAGE, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.SLACK_BOT_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
     return new Response("OK");
   } catch (error) {
     console.error("Upload error:", error);

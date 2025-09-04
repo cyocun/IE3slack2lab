@@ -1,4 +1,3 @@
-import type { MessageMetadata, Bindings } from "../types";
 import { VALIDATION, ENDPOINTS } from "../constants";
 
 /**
@@ -48,43 +47,6 @@ export async function verifySlackSignature(
   return computed_signature === signature;
 }
 
-/**
- * Slackメッセージテキストからメタデータを抽出
- * @param text - Slackメッセージテキスト
- * @returns title、date、urlを含むオブジェクト
- */
-export function parseMessage(text: string): MessageMetadata {
-  const metadata: MessageMetadata = { title: "", date: "", url: "" };
-
-  for (const line of text.split("\n")) {
-    const match = line.trim().match(/^([a-z]+):\s*(.*)$/i);
-    if (!match) continue;
-    const key = match[1]?.toLowerCase();
-    const value = match[2]?.trim();
-
-    switch (key) {
-      case "title":
-        metadata.title = value || "";
-        break;
-      case "date":
-        metadata.date = formatDateInput(value || "");
-        break;
-      case "link":
-      case "url":
-        // URLの場合はSlackハイパーリンク形式から抽出して検証
-        const rawUrlValue = (value || "").trim();
-        if (isValidUrl(rawUrlValue)) {
-          // "no"の場合は空文字、それ以外はURLを抽出
-          metadata.url = rawUrlValue.toLowerCase() === "no" ? "" : extractUrlFromSlackFormat(rawUrlValue);
-        } else {
-          metadata.url = "";
-        }
-        break;
-    }
-  }
-
-  return metadata;
-}
 
 
 /**
@@ -98,9 +60,7 @@ export function extractUrlFromSlackFormat(text: string): string {
   // Slackハイパーリンク形式 <URL|表示名> または <URL> を検出
   const hyperlinkMatch = text.match(/^<([^|>]+)(\|[^>]*)?>/);
   if (hyperlinkMatch) {
-    const extractedUrl = hyperlinkMatch[1] || "";
-    console.log(`Slack hyperlink detected: "${text}" -> extracted: "${extractedUrl}"`);
-    return extractedUrl;
+    return hyperlinkMatch[1] || "";
   }
   
   // 通常のURLの場合はそのまま返す

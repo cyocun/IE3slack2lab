@@ -22,14 +22,6 @@ export type Bindings = {
   THREADS_KV: KVNamespace;
 };
 
-/**
- * パースされたメッセージメタデータ構造
- */
-export interface MessageMetadata {
-  title: string;
-  date: string;
-  url: string;
-}
 
 /**
  * ラボデータ用JSONエントリ構造
@@ -73,10 +65,6 @@ export interface ThreadData {
   };
 }
 
-/**
- * スレッド操作のタイプ
- */
-export type ThreadAction = "edit" | "delete" | "update";
 
 /**
  * 編集タイプ
@@ -107,72 +95,4 @@ export interface SlackFile {
   url_private_download: string;
 }
 
-/**
- * Slack Webhook ペイロード構造
- */
-export interface SlackWebhookPayload {
-  type: string;
-  challenge?: string;
-  event?: SlackEvent;
-}
 
-/**
- * Slack インタラクティブ ペイロード構造
- */
-export interface SlackInteractivePayload {
-  type: string;
-  actions?: Array<{
-    action_id: string;
-    value: string;
-  }>;
-  channel: {
-    id: string;
-  };
-  message: {
-    ts: string;
-    thread_ts?: string;
-  };
-  view?: {
-    callback_id: string;
-    state: {
-      values: {
-        edit_input: {
-          edit_value: {
-            value: string;
-          };
-        };
-      };
-    };
-  };
-  user: {
-    id: string;
-  };
-}
-
-/**
- * GitHub API レスポンス構造
- */
-export interface GitHubBranchResponse {
-  object: {
-    sha: string;
-  };
-}
-
-export interface GitHubCommitResponse {
-  tree: {
-    sha: string;
-  };
-}
-
-export interface GitHubBlobResponse {
-  sha: string;
-}
-
-export interface GitHubTreeResponse {
-  sha: string;
-}
-
-export interface GitHubContentsResponse {
-  content?: string;
-  sha?: string;
-}
