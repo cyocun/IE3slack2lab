@@ -79,10 +79,7 @@ export async function completeUpload(
     };
 
     // GitHubへアップロード（最適化された画像を使用）
-    await uploadToGitHub(env, fullPath, optimizedImageBuffer, [
-      newEntry,
-      ...currentData,
-    ]);
+    await uploadToGitHub(env, fullPath, optimizedImageBuffer, newEntry);
 
     // フロー状態を更新
     flowData.flowState = FLOW_STATE.COMPLETED;
