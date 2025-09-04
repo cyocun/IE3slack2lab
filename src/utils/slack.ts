@@ -51,7 +51,7 @@ export function parseMessage(text: string): MessageMetadata {
   const metadata: MessageMetadata = { title: '', date: '', url: '' }
 
   for (const line of text.split('\n')) {
-    const match = line.trim().match(/^([a-z]+):\s*(.+)$/i)
+    const match = line.trim().match(/^([a-z]+):\s*(.*)$/i)
     if (!match) continue
     const key = match[1].toLowerCase()
     const value = match[2].trim()
