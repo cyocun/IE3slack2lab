@@ -138,7 +138,7 @@ interface FlowData {
 
 #### 5.1 入力バリデーション
 - **画像ファイル**: 画像MIMEタイプ（`image/*`）の検証
-- **日付フォーマット**: 
+- **日付フォーマット**:
   - 入力: `YYYYMMDD`（8桁）または `MMDD`（4桁）形式
   - 出力: `YYYY/MM/DD` 形式に自動変換
   - 検証: `YYYY/MM/DD` 形式の正規表現（`/^\d{4}\/\d{2}\/\d{2}$/`）
@@ -186,9 +186,6 @@ npm run format       # コード整形
 npm run test         # テスト実行
 ```
 
-### Slackコマンド
-- `/format`: 投稿フォーマットヘルプを表示
-
 ## アーキテクチャ
 
 ### ファイル構成
@@ -196,14 +193,32 @@ npm run test         # テスト実行
 src/
 ├── index.ts              # メインエントリポイント（Honoアプリケーション）
 ├── types.ts              # 型定義
-├── constants.ts          # 定数・メッセージテンプレート
+├── constants.ts          # 定数・メッセージテンプレート（一元管理）
 ├── handlers/
 │   ├── flowHandler.ts    # インタラクティブフロー処理
 │   └── buttonHandler.ts  # ボタンインタラクション処理
-└── utils/
-    ├── slack.ts          # Slack API関連ユーティリティ
-    ├── github.ts         # GitHub API関連ユーティリティ
-    └── kv.ts            # KVストレージ・データ操作ユーティリティ
+├── flow/
+│   ├── editHandlers.ts   # 編集・削除操作
+│   ├── flowStates.ts     # フロー状態管理
+│   ├── flowMessages.ts   # メッセージフォーマット
+│   ├── flowValidation.ts # 入力バリデーション
+│   └── uploadProcessor.ts # アップロード処理ロジック
+├── github/
+│   ├── index.ts          # GitHub exports
+│   ├── dataOperations.ts # JSONデータ操作
+│   ├── uploadOperations.ts # ファイルアップロード操作
+│   ├── deleteOperations.ts # ファイル削除操作
+│   ├── githubApi.ts      # GitHub APIヘルパー
+│   ├── urlBuilder.ts     # GitHub URL構築
+│   └── types.ts          # GitHub特有の型定義
+├── utils/
+│   ├── slack.ts          # Slack API関連ユーティリティ
+│   ├── kv.ts            # KVストレージ・データ操作ユーティリティ
+│   ├── imageOptimizer.ts # 画像処理（Photon WebAssembly）
+│   ├── messageFormatter.ts # メッセージフォーマットユーティリティ
+│   └── response.ts       # HTTP レスポンスヘルパー
+└── ui/
+    └── slackBlocks.ts    # Slack Block Kit テンプレート
 ```
 
 ### 処理フロー
@@ -240,6 +255,28 @@ src/
 - 環境変数でのシークレット管理
 - ボットメッセージの除外処理
 
+## パフォーマンス制約と対策
+
+### Slackタイムアウト制約
+- **3秒ルール**: Slackへのレスポンスは3秒以内必須
+- **対策**: `waitUntil()` でバックグラウンド処理実行
+- **ユーザー体験**: 即座に処理中メッセージ → 完了時に詳細メッセージ
+
+### 重い処理の非同期化
+- **アップロード処理**: 画像最適化 + GitHubアップロード
+- **削除処理**: GitHub API呼び出し + JSON更新
+- **実装**: ExecutionContextのwaitUntil()でバックグラウンド実行
+
+### 画像処理最適化
+- **リサイズ**: 1200x1200px上限でリサイズ
+- **フォーマット**: WebP形式に変換で圧縮率向上
+- **メモリ管理**: Photon WebAssemblyのリソース解放
+
+### GitHub API効率化
+- **ブランチ指定**: 全API呼び出しでブランチを明示的に指定
+- **バッチコミット**: Tree APIで画像+JSON同時コミット
+- **エラーハンドリング**: 詳細なエラー情報でデバッグ効率化
+
 ## 制限事項
 
 - **単一画像処理**: 1回の投稿につき最初の画像のみ処理対象
@@ -261,7 +298,7 @@ src/
 - **用途**: Slack Events API Webhook（メッセージ処理）
 - **認証**: Slack署名検証
 - **Content-Type**: `application/json`
-- **レスポンス**: 
+- **レスポンス**:
   - 成功: `OK` (200)
   - 認証失敗: `Unauthorized` (401)
   - JSONパースエラー: `Invalid JSON` (400)

@@ -96,14 +96,29 @@ npm run format
 src/
 ├── index.ts              # メインエントリーポイント（Honoアプリケーション）
 ├── types.ts              # 型定義
-├── constants.ts          # 定数・メッセージテンプレート
+├── constants.ts          # 定数・メッセージテンプレート（一元管理）
 ├── handlers/
 │   ├── flowHandler.ts    # インタラクティブフロー処理
 │   └── buttonHandler.ts  # ボタンインタラクション処理
-└── utils/
-    ├── slack.ts          # Slack API関連ユーティリティ
-    ├── github.ts         # GitHub API関連ユーティリティ
-    └── kv.ts            # KVストレージ・データ操作ユーティリティ
+├── flow/
+│   ├── editHandlers.ts   # 編集・削除操作
+│   ├── flowStates.ts     # フロー状態管理
+│   ├── flowMessages.ts   # メッセージフォーマット
+│   ├── flowValidation.ts # 入力バリデーション
+│   └── uploadProcessor.ts # アップロード処理ロジック
+├── github/
+│   ├── dataOperations.ts # JSONデータ操作
+│   ├── uploadOperations.ts # ファイルアップロード操作
+│   ├── deleteOperations.ts # ファイル削除操作
+│   ├── githubApi.ts      # GitHub APIヘルパー
+│   └── urlBuilder.ts     # GitHub URL構築
+├── utils/
+│   ├── slack.ts          # Slack API関連ユーティリティ
+│   ├── kv.ts            # KVストレージ・データ操作ユーティリティ
+│   ├── imageOptimizer.ts # 画像処理（Photon WebAssembly）
+│   └── messageFormatter.ts # メッセージフォーマットユーティリティ
+└── ui/
+    └── slackBlocks.ts    # Slack Block Kitテンプレート
 ```
 
 ## 技術スタック
@@ -117,6 +132,45 @@ src/
   - Slack Interactive Components（ボタン処理）
   - GitHub Contents API（ファイル管理）
   - GitHub Tree API（一括コミット）
+
+## 開発の流儀・守るべきこと
+
+### 📋 Constants管理
+- **硬直化の原則**: 全ての文字列・設定値は `constants.ts` に集約すること
+- **カテゴリ分類**: `MESSAGES`, `BUTTONS`, `LOG_MESSAGES` 等で論理的にグループ化
+- **型安全性**: `as const` を使用して型安全な定数定義
+
+### 🏗️ アーキテクチャ原則
+- **単一責任**: 各ファイルは明確な単一の目的を持つ
+- **関心の分離**: ビジネスロジック、UI、外部API呼び出しを分離
+- **再利用性**: 共通処理はユーティリティとして抽出
+
+### ⚡ パフォーマンス制約
+- **Slack 3秒ルール**: 重い処理は `waitUntil()` でバックグラウンド実行
+- **即座のレスポンス**: Slackには必ず3秒以内に200 OKを返却
+- **ユーザーフィードバック**: 処理中メッセージ → 完了メッセージの2段階通知
+
+### 🔐 セキュリティ要件
+- **署名検証**: 全SlackリクエストでSignature検証実施
+- **入力検証**: ユーザー入力は必ずバリデーション
+- **シークレット管理**: 認証情報はWrangler secretsで管理（hardcode禁止）
+
+### 🐙 GitHub API使用原則
+- **ブランチ指定必須**: 全API呼び出しでブランチを明示的に指定
+- **一貫性**: urlBuilderヘルパーを必ず使用
+- **エラーハンドリング**: GitHub API失敗時の詳細ログ出力
+
+### 📝 TypeScript要件
+- **Strict Mode**: TypeScript strict mode必須
+- **型定義**: 全データ構造にinterface定義
+- **any禁止**: `any` 型の使用禁止
+
+### 🛠️ 開発時の注意点
+- **デプロイ前確認**: `npm run typecheck` → `npm run build` → テスト実行
+- **ログ監視**: `wrangler tail` でリアルタイム監視
+- **エラー処理**: try-catch漏れがないか必ず確認
+
+詳細な開発規約は [`CLAUDE.md`](./CLAUDE.md) を参照してください。
 
 ## ライセンス
 
