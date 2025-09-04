@@ -82,7 +82,7 @@ export async function completeUpload(
 
     newEntry = {
       id: newId,
-      image: `/${env.IMAGE_PATH}${fullPath}`,
+      image: `/${env.IMAGE_PATH.replace('public/', '')}${fullPath}`,
       title: flowData.collectedData.title || "",
       datetime: flowData.collectedData.date.replace(/\//g, "-"),
       link: flowData.collectedData.link || "",

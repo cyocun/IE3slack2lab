@@ -290,8 +290,10 @@ export async function confirmDelete(
 
     // 画像ファイル削除とJSON更新を1つのコミットで実行
     if (imagePath) {
-      // imagePathから先頭の/を除去（存在する場合）
-      const cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
+      // imagePathは"/images/2025/09/..."の形式
+      // GitHubのリポジトリパスは"public/images/2025/..."なので変換
+      let cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
+      cleanPath = `public/${cleanPath}`;
 
       await deleteImageAndUpdateJson(
         env,

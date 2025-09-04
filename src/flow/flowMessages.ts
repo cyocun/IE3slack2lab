@@ -33,6 +33,8 @@ export function buildSuccessMessage(
 
   message +=
     `👩‍💻  <https://ie3.jp/lab>\n` +
+    '' +
+    'build中なので、数分後に反映されます 🤲' +
     `\`\`\``;
 
   return message;
