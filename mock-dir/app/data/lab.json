@@ -1,5 +1,12 @@
 [
   {
+    "id": 28,
+    "image": "/mock-dir/public/images/2024/12/1756954416816_01.jpg",
+    "title": "新商品リリース",
+    "datetime": "2024-12-25",
+    "link": "<https://example.com>"
+  },
+  {
     "id": 27,
     "image": "/images/lab/20250812.jpg",
     "title": "Heatsink...📛",
