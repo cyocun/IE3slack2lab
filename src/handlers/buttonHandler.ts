@@ -1,7 +1,11 @@
 import type { Context } from "hono";
 import type { Bindings } from "../types";
 import { getThreadData, storeThreadData, deleteThreadData } from "../utils/kv";
-import { sendSlackMessage, sendColoredSlackMessage, sendInteractiveMessage } from "../utils/slack";
+import {
+  sendSlackMessage,
+  sendColoredSlackMessage,
+  sendInteractiveMessage,
+} from "../utils/slack";
 import {
   FlowData,
   FLOW_STATE,
@@ -34,7 +38,7 @@ export async function handleButtonInteraction(
         channel,
         threadTs,
         MESSAGES.ERRORS.DATA_NOT_FOUND,
-        'danger',
+        "danger",
       );
       return c.text("OK");
     }
@@ -95,6 +99,20 @@ export async function handleButtonInteraction(
   }
 }
 
+async function sendCancelMessage(
+  env: Bindings,
+  flowData: FlowData,
+  threadTs: string,
+): Promise<void> {
+  await sendColoredSlackMessage(
+    env.SLACK_BOT_TOKEN,
+    flowData.channel,
+    threadTs,
+    MESSAGES.SUCCESS.CANCELLED,
+    "warning",
+  );
+}
+
 /**
  * アップロード取り消し処理
  */
@@ -104,13 +122,7 @@ async function handleCancelUpload(
   threadTs: string,
 ): Promise<void> {
   await deleteThreadData(env, threadTs);
-  await sendColoredSlackMessage(
-    env.SLACK_BOT_TOKEN,
-    flowData.channel,
-    threadTs,
-    MESSAGES.SUCCESS.CANCELLED,
-    'warning',
-  );
+  await sendCancelMessage(env, flowData, threadTs);
 }
 
 /**
@@ -214,14 +226,7 @@ async function handleCancelEdit(
   flowData.flowState = FLOW_STATE.COMPLETED;
   delete flowData.editingField;
   await storeThreadData(env, threadTs, flowData);
-
-  await sendColoredSlackMessage(
-    env.SLACK_BOT_TOKEN,
-    flowData.channel,
-    threadTs,
-    MESSAGES.SUCCESS.CANCELLED,
-    'warning',
-  );
+  await sendCancelMessage(env, flowData, threadTs);
 }
 
 /**
@@ -232,13 +237,7 @@ async function handleCancelDelete(
   flowData: FlowData,
   threadTs: string,
 ): Promise<void> {
-  await sendColoredSlackMessage(
-    env.SLACK_BOT_TOKEN,
-    flowData.channel,
-    threadTs,
-    MESSAGES.SUCCESS.CANCELLED,
-    'warning',
-  );
+  await sendCancelMessage(env, flowData, threadTs);
 }
 
 /**

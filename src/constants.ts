@@ -16,12 +16,8 @@ export const MESSAGES = {
   },
   SUCCESS: {
     UPLOAD_COMPLETE: "🎉 画像のUPが完了した！",
-    UPLOAD_PENDING_COMPLETE: "🎉 お待た！UP完了",
     UPDATE_COMPLETE: "更新完了✨",
     DELETE_COMPLETE: "削除完了👋",
-    DELETE_PENDING:
-      "🗑️ 了解！キャンセルた！",
-    FIELD_UPDATED: "✅ {field}を更新した",
     CANCELLED: "キャンセル👌",
   },
   PROGRESS: {
@@ -93,7 +89,6 @@ link: https://ie3.jp
 🔗 {link}`,
   },
   COMPLETIONS: {
-    UPLOAD: "完了！🎉",
     UPDATE_FIELD: "更新完了✨\n{field}: {value}",
     DELETE_ENTRY: "削除完了👋 ID: {id}",
   },
@@ -162,7 +157,6 @@ export const BLOCK_TEMPLATES = {
 } as const;
 
 export const VALIDATION = {
-  DATE_REGEX: /^\d{4}\/\d{2}\/\d{2}$/,
   MIN_FILENAME_LENGTH: 3,
   MAX_TIMESTAMP_DIFF: 300, // 5 minutes
   CHUNK_SIZE: 0x1000,
@@ -209,7 +203,4 @@ export const MessageUtils = {
 
   formatDeleteEntry: (id: number) =>
     MESSAGES.COMPLETIONS.DELETE_ENTRY.replace("{id}", id.toString()),
-
-  getFieldName: (field: "date" | "title" | "link") =>
-    MESSAGES.ERROR_HANDLING.FIELD_NAMES[field],
 } as const;
