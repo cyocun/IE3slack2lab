@@ -74,6 +74,26 @@ export function parseMessage(text: string): MessageMetadata {
 }
 
 /**
+ * スレッド操作コマンドを検出
+ * @param text - Slackメッセージテキスト
+ * @returns 操作タイプまたはnull
+ */
+export function detectThreadCommand(text: string): 'delete' | 'update' | null {
+  const trimmedText = text.trim().toLowerCase()
+  
+  if (trimmedText === 'delete' || trimmedText === '削除') {
+    return 'delete'
+  }
+  
+  // 更新の場合は、date:, title:, link: のいずれかが含まれている
+  if (/^(date|title|link):/m.test(text.toLowerCase())) {
+    return 'update'
+  }
+  
+  return null
+}
+
+/**
  * 日付入力を YYYY/MM/DD 形式に変換
  * @param dateInput - YYYYMMDD または MMDD 形式の日付文字列
  * @returns YYYY/MM/DD 形式の日付文字列、または空文字列（無効な場合）

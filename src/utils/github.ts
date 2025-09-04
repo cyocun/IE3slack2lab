@@ -74,7 +74,7 @@ export async function uploadToGitHub(
     method: 'POST',
     headers: jsonHeaders,
     body: JSON.stringify({
-      content: btoa(JSON.stringify(jsonData, null, 2)),
+      content: utf8ToBase64(JSON.stringify(jsonData, null, 2)),
       encoding: 'base64'
     })
   })
@@ -216,6 +216,16 @@ export async function getCurrentJsonData(env: Bindings): Promise<LabEntry[]> {
 }
 
 /**
+ * UTF-8文字列をbase64エンコード
+ * @param str - UTF-8文字列
+ * @returns base64エンコード文字列
+ */
+function utf8ToBase64(str: string): string {
+  // UTF-8エンコード後にbase64変換
+  return btoa(unescape(encodeURIComponent(str)))
+}
+
+/**
  * ArrayBufferをbase64により効率的に変換
  * @param content - ArrayBufferコンテンツ
  * @returns Promise<string> - base64エンコード文字列
@@ -235,4 +245,133 @@ async function convertArrayBufferToBase64(content: ArrayBuffer): Promise<string>
   }
 
   return btoa(binaryString)
+}
+
+/**
+ * JSONデータのみをGitHubリポジトリに更新
+ * @param env - 環境変数
+ * @param jsonData - 更新後のJSONメタデータ配列
+ * @param commitMessage - コミットメッセージ
+ */
+export async function updateJsonOnGitHub(
+  env: Bindings,
+  jsonData: LabEntry[],
+  commitMessage: string
+): Promise<void> {
+  const { GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH, JSON_PATH } = env
+  const authHeaders = {
+    Authorization: `token ${GITHUB_TOKEN}`,
+    'User-Agent': 'Slack-to-GitHub-Worker'
+  }
+  const jsonHeaders = { ...authHeaders, 'Content-Type': 'application/json' }
+
+  // 現在のコミットSHAを取得
+  const branchResp = await fetch(
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`,
+    { headers: authHeaders }
+  )
+
+  if (!branchResp.ok) {
+    const errorText = await branchResp.text()
+    console.error('GitHub API error (branch):', branchResp.status, errorText)
+    throw new Error(`GitHub API error: ${branchResp.status} - ${errorText.substring(0, 100)}`)
+  }
+
+  const branchData = await branchResp.json() as any
+  const commitSha = branchData.object.sha
+
+  // 現在のコミットのツリーSHAを取得
+  const commitResp = await fetch(
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/commits/${commitSha}`,
+    { headers: authHeaders }
+  )
+
+  if (!commitResp.ok) {
+    const errorText = await commitResp.text()
+    console.error('GitHub API error (commit):', commitResp.status, errorText)
+    throw new Error(`GitHub API error: ${commitResp.status} - ${errorText.substring(0, 100)}`)
+  }
+
+  const commitData = await commitResp.json() as any
+  const currentTreeSha = commitData.tree.sha
+
+  // JSONブロブを作成
+  const jsonBlob = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/blobs`, {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({
+      content: utf8ToBase64(JSON.stringify(jsonData, null, 2)),
+      encoding: 'base64'
+    })
+  })
+
+  if (!jsonBlob.ok) {
+    const errorText = await jsonBlob.text()
+    console.error('GitHub API error (json blob):', jsonBlob.status, errorText)
+    throw new Error(`GitHub API error: ${jsonBlob.status} - ${errorText.substring(0, 100)}`)
+  }
+
+  const jsonBlobData = await jsonBlob.json() as any
+
+  // 新しいツリーを作成（JSONファイルのみ）
+  const newTree = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/trees`, {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({
+      base_tree: currentTreeSha,
+      tree: [
+        {
+          path: JSON_PATH,
+          mode: '100644',
+          type: 'blob',
+          sha: jsonBlobData.sha
+        }
+      ]
+    })
+  })
+
+  if (!newTree.ok) {
+    const errorText = await newTree.text()
+    console.error('GitHub API error (tree):', newTree.status, errorText)
+    throw new Error(`GitHub API error: ${newTree.status} - ${errorText.substring(0, 100)}`)
+  }
+
+  const newTreeData = await newTree.json() as any
+
+  // 新しいコミットを作成
+  const newCommit = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/commits`, {
+    method: 'POST',
+    headers: jsonHeaders,
+    body: JSON.stringify({
+      message: commitMessage,
+      tree: newTreeData.sha,
+      parents: [commitSha]
+    })
+  })
+
+  if (!newCommit.ok) {
+    const errorText = await newCommit.text()
+    console.error('GitHub API error (commit):', newCommit.status, errorText)
+    throw new Error(`GitHub API error: ${newCommit.status} - ${errorText.substring(0, 100)}`)
+  }
+
+  const newCommitData = await newCommit.json() as any
+
+  // ブランチを更新
+  const updateRef = await fetch(
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`,
+    {
+      method: 'PATCH',
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        sha: newCommitData.sha
+      })
+    }
+  )
+
+  if (!updateRef.ok) {
+    const errorText = await updateRef.text()
+    console.error('GitHub API error (ref update):', updateRef.status, errorText)
+    throw new Error(`GitHub API error: ${updateRef.status} - ${errorText.substring(0, 100)}`)
+  }
 }

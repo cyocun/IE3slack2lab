@@ -8,6 +8,12 @@ IMAGE_PATH = "mock-dir/public/images/"
 JSON_PATH = "mock-dir/app/data/lab.json"
 GITHUB_BRANCH = "develop"
 
+# KV Storage for thread management
+[[kv_namespaces]]
+binding = "THREADS_KV"
+preview_id = "8a05eb610a234c63872bbe7b4f2f74f6"
+id = "fd720c036d714504a5e8193aab12a18d"
+
 # Secrets should be set via CLI:
 # wrangler secret put SLACK_BOT_TOKEN
 # wrangler secret put SLACK_SIGNING_SECRET

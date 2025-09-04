@@ -18,6 +18,8 @@ export type Bindings = {
   IMAGE_PATH: string
   /** JSONメタデータファイルパス */
   JSON_PATH: string
+  /** KV Storage for thread management */
+  THREADS_KV: KVNamespace
 }
 
 /**
@@ -39,3 +41,34 @@ export interface LabEntry {
   datetime: string
   link: string
 }
+
+/**
+ * スレッド管理用のデータ構造
+ */
+export interface ThreadData {
+  /** エントリID（アップロード済みの場合のみ） */
+  entryId?: number
+  /** Slackメッセージタイムスタンプ */
+  messageTs: string
+  /** チャンネルID */
+  channel: string
+  /** 作成日時 */
+  createdAt: string
+  /** ファイル情報（アップロード待ち用） */
+  pendingFile?: {
+    url: string
+    name: string
+    mimetype: string
+  }
+  /** パースされたメタデータ（部分的な場合もある） */
+  metadata?: {
+    title?: string
+    date?: string
+    url?: string
+  }
+}
+
+/**
+ * スレッド操作のタイプ
+ */
+export type ThreadAction = 'edit' | 'delete' | 'update'
