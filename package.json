@@ -9,7 +9,8 @@
     "build": "tsc",
     "test": "vitest",
     "format": "prettier --write \"src/**/*.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "workers-log": "wrangler tail"
   },
   "keywords": [
     "cloudflare-workers",
