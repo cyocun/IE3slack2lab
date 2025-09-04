@@ -63,6 +63,21 @@ app.post("/slack/events", async (c) => {
     return handleInitialImageUpload(c, env, event);
   } catch (error) {
     console.error("Unexpected error in Slack webhook:", error);
+    
+    // システムエラーをSlackに通知（可能な場合）
+    try {
+      const { notifySystemError } = await import("./utils/slack");
+      await notifySystemError(
+        env.SLACK_BOT_TOKEN,
+        undefined, // チャンネルは指定しない（ログのみ）
+        undefined,
+        error,
+        "Slack Events Webhook"
+      );
+    } catch (notifyError) {
+      console.error("Failed to notify webhook error:", notifyError);
+    }
+    
     return c.text(MESSAGES.ERRORS.INTERNAL_SERVER_ERROR, 500);
   }
 });
@@ -92,10 +107,32 @@ app.post("/slack/interactive", async (c) => {
 
     const payloadParam = bodyText.split("payload=")[1];
     if (!payloadParam) {
+      console.error("No payload parameter found in interactive request");
       return c.text("Bad Request", 400);
     }
 
-    const payload = JSON.parse(decodeURIComponent(payloadParam));
+    let payload;
+    try {
+      payload = JSON.parse(decodeURIComponent(payloadParam));
+    } catch (error) {
+      console.error("Failed to parse interactive payload:", error);
+      
+      // インタラクティブペイロードパースエラーをSlackに通知
+      try {
+        const { notifySystemError } = await import("./utils/slack");
+        await notifySystemError(
+          env.SLACK_BOT_TOKEN,
+          undefined,
+          undefined,
+          error,
+          "Interactive Payload Parse"
+        );
+      } catch (notifyError) {
+        console.error("Failed to notify payload error:", notifyError);
+      }
+      
+      return c.text("Bad Request", 400);
+    }
 
     if (payload.type === "block_actions") {
       return handleButtonInteraction(c, env, payload);
@@ -104,6 +141,21 @@ app.post("/slack/interactive", async (c) => {
     return c.text("OK");
   } catch (error) {
     console.error("Interactive endpoint error:", error);
+    
+    // インタラクティブエンドポイントエラーをSlackに通知
+    try {
+      const { notifySystemError } = await import("./utils/slack");
+      await notifySystemError(
+        env.SLACK_BOT_TOKEN,
+        undefined,
+        undefined,
+        error,
+        "Interactive Endpoint"
+      );
+    } catch (notifyError) {
+      console.error("Failed to notify interactive error:", notifyError);
+    }
+    
     return c.text(MESSAGES.ERRORS.INTERNAL_SERVER_ERROR, 500);
   }
 });

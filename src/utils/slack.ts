@@ -287,3 +287,36 @@ export async function sendInteractiveMessage(
   });
 }
 
+/**
+ * システムエラーをSlackに通知
+ * @param token - Slackボットトークン
+ * @param channel - 対象チャンネル（オプション）
+ * @param threadTs - スレッドタイムスタンプ（オプション）
+ * @param error - エラー情報
+ * @param context - エラーが発生した場所の説明
+ */
+export async function notifySystemError(
+  token: string,
+  channel?: string,
+  threadTs?: string,
+  error?: any,
+  context?: string,
+): Promise<void> {
+  try {
+    const errorMessage = `🚨 システムエラーが発生しました\n\n` +
+      `**場所**: ${context || 'Unknown'}\n` +
+      `**エラー**: ${error?.message || error || 'Unknown error'}\n` +
+      `**時刻**: ${new Date().toISOString()}`;
+
+    // チャンネルが指定されている場合はそこに送信、なければログのみ
+    if (channel) {
+      await sendColoredSlackMessage(token, channel, threadTs, errorMessage, 'danger');
+    } else {
+      console.error(`System Error Notification: ${errorMessage}`);
+    }
+  } catch (notifyError) {
+    console.error("Failed to notify system error:", notifyError);
+    console.error("Original error:", error);
+  }
+}
+

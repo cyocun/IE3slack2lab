@@ -10,7 +10,7 @@
     "test": "vitest",
     "format": "prettier --write \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
-    "workers-log": "wrangler tail"
+    "workers-log": "wrangler tail --format=pretty"
   },
   "keywords": [
     "cloudflare-workers",

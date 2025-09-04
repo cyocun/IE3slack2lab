@@ -31,10 +31,37 @@ export async function getCurrentJsonData(env: Bindings): Promise<LabEntry[]> {
     }
 
     const data = await response.json() as GitHubFile;
+    
+    if (!data.content || typeof data.content !== 'string') {
+      console.log("Empty or invalid content in GitHub response, returning empty array");
+      return [];
+    }
+    
     const content = base64ToUtf8(data.content);
+    
+    if (!content.trim()) {
+      console.log("Empty JSON content after decoding, returning empty array");
+      return [];
+    }
+    
     return JSON.parse(content);
   } catch (error) {
     console.error("Error fetching JSON data:", error);
+    // GitHubのJSONデータ取得エラーは重要なので、可能であればSlackに通知
+    if (env.SLACK_BOT_TOKEN) {
+      try {
+        const { notifySystemError } = await import("../utils/slack");
+        await notifySystemError(
+          env.SLACK_BOT_TOKEN,
+          undefined, // チャンネルは指定しない（ログのみ）
+          undefined,
+          error,
+          "GitHub JSON data fetch"
+        );
+      } catch (notifyError) {
+        console.error("Failed to notify GitHub data error:", notifyError);
+      }
+    }
     return [];
   }
 }
@@ -44,7 +71,16 @@ export async function getCurrentJsonData(env: Bindings): Promise<LabEntry[]> {
  */
 function base64ToUtf8(base64: string): string {
   try {
-    const binaryString = atob(base64.replace(/\s/g, ''));
+    if (!base64 || typeof base64 !== 'string') {
+      throw new Error('Invalid base64 input');
+    }
+    
+    const cleanBase64 = base64.replace(/\s/g, '');
+    if (!cleanBase64) {
+      throw new Error('Empty base64 content');
+    }
+    
+    const binaryString = atob(cleanBase64);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
