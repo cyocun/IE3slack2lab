@@ -14,16 +14,16 @@ export async function uploadToGitHub(
   jsonData: LabEntry[]
 ): Promise<void> {
   const { GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH, IMAGE_PATH, JSON_PATH } = env
+  const authHeaders = {
+    Authorization: `token ${GITHUB_TOKEN}`,
+    'User-Agent': 'Slack-to-GitHub-Worker'
+  }
+  const jsonHeaders = { ...authHeaders, 'Content-Type': 'application/json' }
 
   // 現在のコミットSHAを取得
   const branchResp = await fetch(
     `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`,
-    {
-      headers: {
-        Authorization: `token ${GITHUB_TOKEN}`,
-        'User-Agent': 'Slack-to-GitHub-Worker'
-      }
-    }
+    { headers: authHeaders }
   )
 
   if (!branchResp.ok) {
@@ -38,12 +38,7 @@ export async function uploadToGitHub(
   // 現在のツリーを取得
   const commitResp = await fetch(
     `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/commits/${currentCommitSha}`,
-    {
-      headers: {
-        Authorization: `token ${GITHUB_TOKEN}`,
-        'User-Agent': 'Slack-to-GitHub-Worker'
-      }
-    }
+    { headers: authHeaders }
   )
 
   if (!commitResp.ok) {
@@ -60,11 +55,7 @@ export async function uploadToGitHub(
 
   const imageBlob = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/blobs`, {
     method: 'POST',
-    headers: {
-      Authorization: `token ${GITHUB_TOKEN}`,
-      'Content-Type': 'application/json',
-      'User-Agent': 'Slack-to-GitHub-Worker'
-    },
+    headers: jsonHeaders,
     body: JSON.stringify({
       content: imageBase64,
       encoding: 'base64'
@@ -81,11 +72,7 @@ export async function uploadToGitHub(
 
   const jsonBlob = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/blobs`, {
     method: 'POST',
-    headers: {
-      Authorization: `token ${GITHUB_TOKEN}`,
-      'Content-Type': 'application/json',
-      'User-Agent': 'Slack-to-GitHub-Worker'
-    },
+    headers: jsonHeaders,
     body: JSON.stringify({
       content: btoa(JSON.stringify(jsonData, null, 2)),
       encoding: 'base64'
@@ -103,11 +90,7 @@ export async function uploadToGitHub(
   // 新しいツリーを作成
   const newTree = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/trees`, {
     method: 'POST',
-    headers: {
-      Authorization: `token ${GITHUB_TOKEN}`,
-      'Content-Type': 'application/json',
-      'User-Agent': 'Slack-to-GitHub-Worker'
-    },
+    headers: jsonHeaders,
     body: JSON.stringify({
       base_tree: currentTreeSha,
       tree: [
@@ -138,11 +121,7 @@ export async function uploadToGitHub(
   // コミットを作成
   const newCommit = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/commits`, {
     method: 'POST',
-    headers: {
-      Authorization: `token ${GITHUB_TOKEN}`,
-      'Content-Type': 'application/json',
-      'User-Agent': 'Slack-to-GitHub-Worker'
-    },
+    headers: jsonHeaders,
     body: JSON.stringify({
       message: `Add lab image: ${fileName}`,
       tree: newTreeData.sha,
@@ -163,11 +142,7 @@ export async function uploadToGitHub(
     `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`,
     {
       method: 'PATCH',
-      headers: {
-        Authorization: `token ${GITHUB_TOKEN}`,
-        'Content-Type': 'application/json',
-        'User-Agent': 'Slack-to-GitHub-Worker'
-      },
+      headers: jsonHeaders,
       body: JSON.stringify({
         sha: newCommitData.sha
       })
@@ -188,16 +163,15 @@ export async function uploadToGitHub(
  */
 export async function getCurrentJsonData(env: Bindings): Promise<LabEntry[]> {
   const { GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO, JSON_PATH, GITHUB_BRANCH } = env
+  const headers = {
+    Authorization: `token ${GITHUB_TOKEN}`,
+    'User-Agent': 'Slack-to-GitHub-Worker'
+  }
 
   try {
     const response = await fetch(
       `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${JSON_PATH}?ref=${GITHUB_BRANCH}`,
-      {
-        headers: {
-          Authorization: `token ${GITHUB_TOKEN}`,
-          'User-Agent': 'Slack-to-GitHub-Worker'
-        }
-      }
+      { headers }
     )
 
     if (response.status === 404) {
@@ -254,9 +228,8 @@ async function convertArrayBufferToBase64(content: ArrayBuffer): Promise<string>
   for (let i = 0; i < uint8Array.length; i += chunkSize) {
     const end = Math.min(i + chunkSize, uint8Array.length)
     for (let j = i; j < end; j++) {
-      const byte = uint8Array[j]
-      if (byte !== undefined) {
-        binaryString += String.fromCharCode(byte)
+      if (typeof uint8Array[j] !== 'undefined') {
+        binaryString += String.fromCharCode(uint8Array[j])
       }
     }
   }

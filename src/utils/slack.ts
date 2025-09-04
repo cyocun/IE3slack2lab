@@ -48,23 +48,30 @@ export async function verifySlackSignature(
  * @returns title、date、urlを含むオブジェクト
  */
 export function parseMessage(text: string): MessageMetadata {
-  const lines = text.split('\n')
-  let title = '', date = '', url = ''
+  const metadata: MessageMetadata = { title: '', date: '', url: '' }
 
-  // 各行をメタデータフィールドとしてパース
-  for (const line of lines) {
-    const trimmed = line.trim()
-    if (trimmed.startsWith('title:')) {
-      title = trimmed.substring(6).trim()
-    } else if (trimmed.startsWith('date:')) {
-      date = trimmed.substring(5).trim()
-    } else if (trimmed.startsWith('url:')) {
-      url = trimmed.substring(4).trim()
+  for (const line of text.split('\n')) {
+    const match = line.trim().match(/^([a-z]+):\s*(.*)$/i)
+    if (!match) continue
+    const key = match[1].toLowerCase()
+    const value = match[2].trim()
+
+    switch (key) {
+      case 'title':
+        metadata.title = value
+        break
+      case 'date':
+        metadata.date = value
+        break
+      case 'url':
+        metadata.url = value
+        break
     }
   }
 
-  return { title, date, url }
+  return metadata
 }
+
 
 /**
  * ボットトークンを使用してSlackからファイルをダウンロード
@@ -76,6 +83,9 @@ export async function getSlackFile(fileUrl: string, token: string): Promise<Arra
   const response = await fetch(fileUrl, {
     headers: { Authorization: `Bearer ${token}` }
   })
+  if (!response.ok) {
+    throw new Error(`Failed to fetch file: ${response.status}`)
+  }
   return response.arrayBuffer()
 }
 
