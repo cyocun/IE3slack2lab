@@ -35,7 +35,7 @@ Slackから投稿された画像をGitHubリポジトリにアップロードし
    - 表示されたトークンを控える
 2. 画像を保存するリポジトリを準備
    - GitHub右上の **+** → **New repository** から新規リポジトリを作成するか、既存リポジトリを使用
-   - リポジトリのオーナー名とリポジトリ名を控える（例: `yourname/yourrepo`）  
+   - リポジトリのオーナー名とリポジトリ名を控える（例: `username/repository-name`）  
      これらは後の `GITHUB_OWNER` と `GITHUB_REPO` シークレット設定で使用します
 
 ### 3. Cloudflare Workersデプロイ
@@ -70,18 +70,22 @@ wrangler deploy
 Slackで画像を添付して以下の形式で投稿:
 
 ```
-タイトル: 新商品リリース
-日付: 2024-01-15
-リンク: https://example.com
+date: 20240115
+title: 新商品リリース
+link: https://example.com
 ```
+
+**日付フォーマット**:
+- `YYYYMMDD`: 20241225
+- `MMDD`: 1225 (現在の西暦を自動設定)
 
 ### 更新
 
 投稿のスレッドで更新内容を送信:
 
 ```
-タイトル: 更新後のタイトル
-日付: 2024-01-20
+title: 更新後のタイトル
+date: 20240120
 ```
 
 ### 削除
@@ -108,19 +112,19 @@ npm run format
 
 ```
 src/
-├── index.ts              # メインエントリーポイント
-├── types/
-│   └── index.ts          # 型定義
-├── lib/
-│   ├── slack.ts          # Slack API関連
-│   ├── github.ts         # GitHub API関連
-│   └── image.ts          # 画像処理
-├── handlers/
-│   ├── message.ts        # メッセージハンドリング
-│   └── thread.ts         # スレッド操作
+├── index.ts              # メインエントリーポイント（Honoアプリケーション）
+├── types.ts              # 型定義
 └── utils/
-    └── parser.ts         # メッセージパース・バリデーション
+    ├── slack.ts          # Slack API関連ユーティリティ
+    └── github.ts         # GitHub API関連ユーティリティ
 ```
+
+## 技術スタック
+
+- **フレームワーク**: [Hono](https://hono.dev/) - 軽量で高速なWebフレームワーク
+- **実行環境**: Cloudflare Workers
+- **言語**: TypeScript
+- **API統合**: Slack Events API, GitHub Contents API
 
 ## ライセンス
 

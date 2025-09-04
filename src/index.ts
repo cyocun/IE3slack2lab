@@ -41,8 +41,39 @@ app.post('/slack/events', async (c) => {
     try {
       const { title, date, url } = parseMessage(event.text || '')
 
+      if (!date) {
+        const formatExample = `❌ 日付が指定されていません
+
+**正しい形式**:
+• \`date: 20241225\` (YYYYMMDD形式)
+• \`date: 1225\` (MMDD形式、現在年自動設定)
+
+**例**:
+\`\`\`
+date: 20241225
+title: 新商品リリース  
+link: https://example.com
+\`\`\``
+        await sendSlackMessage(env.SLACK_BOT_TOKEN, event.channel, event.ts, formatExample)
+        return c.text('OK')
+      }
+
       if (!/^\d{4}\/\d{2}\/\d{2}$/.test(date)) {
-        await sendSlackMessage(env.SLACK_BOT_TOKEN, event.channel, event.ts, '❌ 日付は YYYY/MM/DD 形式で入力してください')
+        const formatExample = `❌ 日付フォーマットが正しくありません
+
+**受け取った値**: \`${date}\`
+
+**正しい形式**:
+• \`date: 20241225\` (YYYYMMDD形式)  
+• \`date: 1225\` (MMDD形式、現在年自動設定)
+
+**例**:
+\`\`\`
+date: 20241225
+title: 新商品リリース
+link: https://example.com
+\`\`\``
+        await sendSlackMessage(env.SLACK_BOT_TOKEN, event.channel, event.ts, formatExample)
         return c.text('OK')
       }
 

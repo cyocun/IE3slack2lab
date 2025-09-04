@@ -1,4 +1,4 @@
-# IE3 Slack to GitHub Lab Uploader - 現在の仕様書
+# IE3 Slack to GitHub Lab Uploader - 技術仕様書
 
 ## 概要
 
@@ -10,10 +10,14 @@ SlackからGitHubリポジトリへの画像アップロードとメタデータ
 - **実行環境**: Cloudflare Workers
 - **言語**: TypeScript
 - **パッケージマネージャー**: npm
+- **Webフレームワーク**: Hono
 
 ### 主要依存関係
 ```json
 {
+  "dependencies": {
+    "hono": "^4.9.6"
+  },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240117.0",
     "@types/node": "^20.11.5",
@@ -36,15 +40,20 @@ SlackからGitHubリポジトリへの画像アップロードとメタデータ
 
 #### 1.2 対応メッセージ形式
 ```
-title: [タイトル] (optional)
-date: YYYY/MM/DD (required)
-url: [URL] (optional)
+date: YYYYMMDD または MMDD (required)
+title: [タイトル] (optional)  
+link: [URL] (optional)
 ```
 
+**日付フォーマット**:
+- `YYYYMMDD`: 20241225 → 2024/12/25
+- `MMDD`: 1225 → 2025/12/25 (現在の西暦を自動設定)
+
 #### 1.3 画像処理
-- **対応形式**: 画像ファイル（詳細な形式は実装に依存）
-- **リサイズ処理**: 自動リサイズ機能有り
+- **対応形式**: image/* MIMEタイプの画像ファイル
+- **処理方法**: 画像データをそのままGitHubにアップロード
 - **保存先**: `mock-dir/public/images/YYYY/MM/` 形式
+- **ファイル名**: `{timestamp}_{original_filename}` 形式
 
 ### 2. GitHub統合
 
@@ -75,46 +84,32 @@ mock-dir/
   "image": "/mock-dir/public/images/2025/09/1756924937876_20250702-2.jpg",
   "title": "タイトル（optional）",
   "datetime": "2025-04-01",
-  "link": "https://example.com（optional）",
-  "metadata": {
-    "uploaded_at": "2025-09-03T18:42:18.081Z",
-    "updated_at": "2025-09-03T18:42:18.081Z",
-    "slack_user": "U8QAVGL07",
-    "slack_channel": "C09CY145CFR",
-    "slack_thread_ts": "1756924936.200809",
-    "slack_message_ts": "1756924936.200809"
-  }
+  "link": "https://example.com（optional）"
 }
 ```
+
+注意: 現在の実装では、Slackメタデータ（アップロード日時、ユーザー情報、チャンネル情報等）の保存は含まれていません。
 
 #### 3.2 配列管理
 - 新しいアイテムは配列の先頭に追加
 - IDは自動インクリメント
 - 時系列降順で管理
 
-### 4. スレッド機能
+### 4. エラーハンドリングと検証
 
-#### 4.1 スレッド操作
-- **削除**: スレッドでの特定コマンドで既存アイテム削除可能
-- **更新**: スレッドでのメタデータ更新機能
+#### 4.1 入力バリデーション
+- **画像ファイル**: 画像MIMEタイプ（`image/*`）の検証
+- **日付フォーマット**: 
+  - 入力: `YYYYMMDD`（8桁）または `MMDD`（4桁）形式
+  - 出力: `YYYY/MM/DD` 形式に自動変換
+  - 検証: `YYYY/MM/DD` 形式の正規表現（`/^\d{4}\/\d{2}\/\d{2}$/`）
+- **ボットメッセージ**: `bot_id`の存在チェックでボット投稿を除外
+- **イベントタイプ**: `message`タイプのイベントのみ処理
 
-### 5. エラーハンドリング
-
-#### 5.1 バリデーション
-- 画像添付必須チェック
-- 日付フォーマット検証
-- メッセージ形式検証
-
-#### 5.2 エラー応答
-- フォーマットエラー時の詳細メッセージ
-- Slack上でのリアルタイムエラー通知
-
-### 6. 文字エンコーディング対応
-
-#### 6.1 UTF-8/絵文字対応
-- JSON更新時の絵文字文字化け問題を解決
-- base64エンコード/デコード時のUTF-8適切処理
-- `encodeURIComponent/decodeURIComponent` + `escape/unescape` パターン使用
+#### 4.2 エラー応答
+- **フォーマットエラー**: Slackスレッドに詳細なエラーメッセージを投稿
+- **処理エラー**: エラー詳細とスタックトレースをSlackに通知
+- **認証エラー**: 401 Unauthorizedを返却
 
 ## 環境設定
 
@@ -155,28 +150,24 @@ npm run test         # テスト実行
 ### ファイル構成
 ```
 src/
-├── index.ts              # メインエントリポイント
-├── handlers/
-│   ├── message.ts        # メッセージ処理
-│   └── thread.ts         # スレッド操作
-├── lib/
-│   ├── slack.ts          # Slack API客户端
-│   ├── github.ts         # GitHub API客户端
-│   └── image.ts          # 画像処理
-├── utils/
-│   └── parser.ts         # メッセージパース
-└── types/
-    └── index.ts          # 型定義
+├── index.ts              # メインエントリポイント（Honoアプリケーション）
+├── types.ts              # 型定義
+└── utils/
+    ├── slack.ts          # Slack API関連ユーティリティ
+    └── github.ts         # GitHub API関連ユーティリティ
 ```
 
 ### 処理フロー
-1. Slack Webhook受信
-2. 署名検証
-3. メッセージ/スレッド判定
-4. パース & バリデーション
-5. 画像ダウンロード & リサイズ
-6. GitHub同時アップロード（画像 + JSON）
-7. Slack応答
+1. **Slack Webhook受信**: `/slack/events` エンドポイントでPOSTリクエスト受信
+2. **署名検証**: Slack署名とタイムスタンプで認証検証
+3. **URLVerification**: 初回設定時のチャレンジレスポンス処理
+4. **イベントフィルタリング**: ボットメッセージや非画像メッセージを除外
+5. **メッセージパース**: 英語形式（date、title、link）のパース
+6. **日付バリデーション**: YYYY/MM/DD形式の検証
+7. **画像ダウンロード**: Slack API経由で画像データ取得
+8. **メタデータ生成**: 新規IDとLabEntryオブジェクト作成
+9. **GitHub同時アップロード**: Contents APIで画像とJSONを1コミットでアップロード
+10. **Slack応答**: 成功/エラーメッセージをスレッドに投稿
 
 ## セキュリティ
 
@@ -187,20 +178,32 @@ src/
 
 ## 制限事項
 
-- 1回の投稿につき1画像のみ対応
-- 画像形式制限有り（詳細は実装依存）
-- Cloudflare Workers実行時間制限内での処理
-- メモリベースの重複イベント防止（再起動でリセット）
+- **単一画像処理**: 1回の投稿につき最初の画像のみ処理対象
+- **画像形式**: `image/*` MIMEタイプの画像ファイルのみ対応
+- **実行時間制限**: Cloudflare Workersの実行時間制限（CPU時間30秒）内での処理
+- **スレッド機能なし**: 現在の実装では削除・更新機能は未実装
+- **メタデータ拡張なし**: Slackユーザー情報やタイムスタンプの保存なし
 
-## 最近の修正
+## API仕様
 
-### 絵文字対応改善 (2025-09-03)
-- JSON更新時の絵文字文字化け問題を修正
-- UTF-8エンコーディング/デコーディング処理を改善
-- base64変換時のUnicode文字適切処理を実装
+### エンドポイント
+
+#### `GET /`
+- **用途**: ヘルスチェック
+- **レスポンス**: `OK` (200)
+
+#### `POST /slack/events`
+- **用途**: Slack Events API Webhook
+- **認証**: Slack署名検証
+- **Content-Type**: `application/json`
+- **レスポンス**: 
+  - 成功: `OK` (200)
+  - 認証失敗: `Unauthorized` (401)
+  - JSONパースエラー: `Invalid JSON` (400)
 
 ## ログ・モニタリング
 
-- Cloudflare Workers ログ有効化
-- `npx wrangler tail --format pretty` でリアルタイムログ監視可能
-- Slackメッセージでの処理状況通知
+- **Cloudflare Workers**: ログ有効化（`observability.logs.enabled = true`）
+- **ローカル監視**: `npx wrangler tail --format pretty`
+- **エラー通知**: Slackスレッドに詳細エラーメッセージ自動投稿
+- **コンソールログ**: 処理エラーの詳細をWorkersコンソールに出力

@@ -61,8 +61,9 @@ export function parseMessage(text: string): MessageMetadata {
         metadata.title = value || ''
         break
       case 'date':
-        metadata.date = value || ''
+        metadata.date = formatDateInput(value || '')
         break
+      case 'link':
       case 'url':
         metadata.url = value || ''
         break
@@ -70,6 +71,50 @@ export function parseMessage(text: string): MessageMetadata {
   }
 
   return metadata
+}
+
+/**
+ * 日付入力を YYYY/MM/DD 形式に変換
+ * @param dateInput - YYYYMMDD または MMDD 形式の日付文字列
+ * @returns YYYY/MM/DD 形式の日付文字列、または空文字列（無効な場合）
+ */
+export function formatDateInput(dateInput: string): string {
+  if (!dateInput) return ''
+  
+  const cleanDate = dateInput.replace(/[^\d]/g, '')
+  const currentYear = new Date().getFullYear().toString()
+  
+  if (cleanDate.length === 8) {
+    // YYYYMMDD format
+    const year = cleanDate.slice(0, 4)
+    const month = cleanDate.slice(4, 6)
+    const day = cleanDate.slice(6, 8)
+    
+    // Basic validation
+    const monthNum = parseInt(month, 10)
+    const dayNum = parseInt(day, 10)
+    if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) {
+      return ''
+    }
+    
+    return `${year}/${month}/${day}`
+  } else if (cleanDate.length === 4) {
+    // MMDD format - use current year
+    const month = cleanDate.slice(0, 2)
+    const day = cleanDate.slice(2, 4)
+    
+    // Basic validation
+    const monthNum = parseInt(month, 10)
+    const dayNum = parseInt(day, 10)
+    if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) {
+      return ''
+    }
+    
+    return `${currentYear}/${month}/${day}`
+  }
+  
+  // Return empty if format doesn't match
+  return ''
 }
 
 
