@@ -71,7 +71,14 @@ export function parseMessage(text: string): MessageMetadata {
         break;
       case "link":
       case "url":
-        metadata.url = value || "";
+        // URLの場合はSlackハイパーリンク形式から抽出して検証
+        const rawUrlValue = (value || "").trim();
+        if (isValidUrl(rawUrlValue)) {
+          // "no"の場合は空文字、それ以外はURLを抽出
+          metadata.url = rawUrlValue.toLowerCase() === "no" ? "" : extractUrlFromSlackFormat(rawUrlValue);
+        } else {
+          metadata.url = "";
+        }
         break;
     }
   }
@@ -79,6 +86,51 @@ export function parseMessage(text: string): MessageMetadata {
   return metadata;
 }
 
+
+/**
+ * Slackハイパーリンク形式からURLを抽出
+ * @param text - Slackハイパーリンク形式のテキスト (<URL|表示名> または URL)
+ * @returns 抽出されたURL
+ */
+export function extractUrlFromSlackFormat(text: string): string {
+  if (!text) return "";
+  
+  // Slackハイパーリンク形式 <URL|表示名> または <URL> を検出
+  const hyperlinkMatch = text.match(/^<([^|>]+)(\|[^>]*)?>/);
+  if (hyperlinkMatch) {
+    const extractedUrl = hyperlinkMatch[1] || "";
+    console.log(`Slack hyperlink detected: "${text}" -> extracted: "${extractedUrl}"`);
+    return extractedUrl;
+  }
+  
+  // 通常のURLの場合はそのまま返す
+  return text.trim();
+}
+
+/**
+ * URLの形式を検証
+ * @param url - 検証するURL文字列（Slackハイパーリンク形式にも対応）
+ * @returns 有効なURLの場合true、無効な場合false
+ */
+export function isValidUrl(url: string): boolean {
+  if (!url || url.trim() === "" || url.toLowerCase().trim() === "no") {
+    return true; // 空文字や"no"は許可
+  }
+  
+  // URLをクリーンアップ（前後の空白、改行等を除去）
+  const cleanUrl = url.trim().replace(/[\n\r]/g, '');
+  
+  // Slackハイパーリンク形式からURLを抽出
+  const actualUrl = extractUrlFromSlackFormat(cleanUrl);
+  
+  try {
+    const urlObj = new URL(actualUrl);
+    // httpまたはhttpsプロトコルのみ許可
+    return urlObj.protocol === "http:" || urlObj.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 /**
  * 日付入力を YYYY/MM/DD 形式に変換
@@ -205,6 +257,42 @@ export async function sendSlackMessage(
       channel,
       thread_ts: threadTs,
       text,
+    }),
+  });
+}
+
+/**
+ * カラー付きメッセージを送信
+ * @param token - Slackボットトークン
+ * @param channel - 対象チャンネル
+ * @param threadTs - スレッドタイムスタンプ（オプション）
+ * @param text - メッセージテキスト
+ * @param color - サイドバーの色 ('good' | 'warning' | 'danger' | hex色)
+ */
+export async function sendColoredSlackMessage(
+  token: string,
+  channel: string,
+  threadTs: string | undefined,
+  text: string,
+  color: 'good' | 'warning' | 'danger' | string,
+): Promise<void> {
+  await fetch(ENDPOINTS.SLACK_API.CHAT_POST_MESSAGE, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      channel,
+      thread_ts: threadTs,
+      text: "", // メインテキストは空にする
+      attachments: [
+        {
+          color: color,
+          text: text,
+          mrkdwn_in: ["text"],
+        },
+      ],
     }),
   });
 }

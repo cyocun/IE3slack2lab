@@ -2,10 +2,13 @@ import type { Context } from "hono";
 import type { Bindings, ThreadData, LabEntry } from "../types";
 import {
   sendSlackMessage,
+  sendColoredSlackMessage,
   sendInteractiveMessage,
   formatDateInput,
   sanitizeFileName,
   getSlackFile,
+  isValidUrl,
+  extractUrlFromSlackFormat,
 } from "../utils/slack";
 import {
   uploadToGitHub,
@@ -118,11 +121,12 @@ export async function handleInitialImageUpload(
     return c.text("OK");
   } catch (error) {
     console.error("Initial upload error:", error);
-    await sendSlackMessage(
+    await sendColoredSlackMessage(
       env.SLACK_BOT_TOKEN,
       event.channel,
       event.ts,
       MESSAGES.ERRORS.UPLOAD_ERROR,
+      'danger',
     );
     return c.text("OK");
   }
@@ -171,11 +175,12 @@ async function handleDateInput(
   const formattedDate = formatDateInput(input);
 
   if (!formattedDate || !/^\d{4}\/\d{2}\/\d{2}$/.test(formattedDate)) {
-    await sendSlackMessage(
+    await sendColoredSlackMessage(
       env.SLACK_BOT_TOKEN,
       flowData.channel,
       threadTs,
       MessageUtils.formatDateInvalid(input),
+      'danger',
     );
     return new Response("OK");
   }
@@ -283,8 +288,22 @@ async function handleLinkInput(
   input: string,
   threadTs: string,
 ): Promise<Response> {
-  // "no"入力でスキップ
-  const linkValue = input.toLowerCase() === "no" ? "" : input;
+  const cleanInput = input.trim();
+  
+  // URL検証
+  if (!isValidUrl(cleanInput)) {
+    await sendColoredSlackMessage(
+      env.SLACK_BOT_TOKEN,
+      flowData.channel,
+      threadTs,
+      MessageUtils.formatLinkInvalid(cleanInput),
+      'danger',
+    );
+    return new Response("OK");
+  }
+
+  // "no"入力でスキップ、それ以外はSlackハイパーリンク形式からURLを抽出
+  const linkValue = cleanInput.toLowerCase() === "no" ? "" : extractUrlFromSlackFormat(cleanInput);
 
   // リンクを保存して投稿処理へ
   flowData.collectedData = { ...flowData.collectedData, link: linkValue };
@@ -293,7 +312,7 @@ async function handleLinkInput(
 }
 
 /**
- * アップロード完了処理（非同期対応）
+ * アップロード完了処理
  */
 export async function completeUpload(
   env: Bindings,
@@ -310,32 +329,15 @@ export async function completeUpload(
     return new Response("OK");
   }
 
-  // 即座に処理開始メッセージを送信
-  await sendSlackMessage(
-    env.SLACK_BOT_TOKEN,
-    flowData.channel,
-    threadTs,
-    "🔄 アップロード処理を開始しています...",
-  );
-
-  // バックグラウンドでアップロード処理を実行
-  env.ctx?.waitUntil?.(
-    performUploadAsync(env, flowData, threadTs)
-  );
-
-  return new Response("OK");
-}
-
-/**
- * 非同期アップロード処理
- */
-async function performUploadAsync(
-  env: Bindings,
-  flowData: FlowData,
-  threadTs: string,
-): Promise<void> {
   try {
-    if (!flowData.imageFile || !flowData.collectedData?.date) return;
+    // 処理開始メッセージを送信（褒め言葉付き）
+    const praise = MessageUtils.getRandomPraise();
+    await sendSlackMessage(
+      env.SLACK_BOT_TOKEN,
+      flowData.channel,
+      threadTs,
+      `${praise}\n${MESSAGES.PROGRESS.UPLOAD_PROCESSING}`,
+    );
 
     // 画像をダウンロード
     const imageBuffer = await getSlackFile(
@@ -375,7 +377,7 @@ async function performUploadAsync(
     flowData.entryId = newId;
     await storeThreadData(env, threadTs, flowData);
 
-    // 完了メッセージ
+    // 完了メッセージ（ボタン付き）
     const successText = buildSuccessMessage(
       fileName,
       newId,
@@ -383,38 +385,136 @@ async function performUploadAsync(
       flowData.collectedData.title || "",
       flowData.collectedData.link || "",
     );
-    await sendSlackMessage(
+    
+    // 成功メッセージとボタンを一緒に送信
+    const blocks = [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: successText,
+        },
+      },
+      {
+        type: "actions",
+        elements: [
+          {
+            type: "button",
+            text: {
+              type: "plain_text",
+              text: "✏️ 修正",
+              emoji: true,
+            },
+            action_id: "edit_entry",
+            value: newId.toString(),
+          },
+          {
+            type: "button",
+            text: {
+              type: "plain_text",
+              text: "🗑️ 削除",
+              emoji: true,
+            },
+            style: "danger",
+            action_id: "delete_entry",
+            value: newId.toString(),
+          },
+        ],
+      },
+    ];
+
+    await sendInteractiveMessage(
       env.SLACK_BOT_TOKEN,
       flowData.channel,
       threadTs,
-      successText,
+      "",
+      blocks,
     );
+    return new Response("OK");
   } catch (error) {
-    console.error("Async upload error:", error);
-    await sendSlackMessage(
+    console.error("Upload error:", error);
+    await sendColoredSlackMessage(
       env.SLACK_BOT_TOKEN,
       flowData.channel,
       threadTs,
       MessageUtils.formatUploadFailed(
         error instanceof Error ? error.message : MESSAGES.ERRORS.UNKNOWN_ERROR,
       ),
+      'danger',
     );
+    return new Response("OK");
   }
 }
 
 /**
- * 編集フィールド選択処理（簡略化）
+ * 編集フィールド選択処理（ボタン付き）
  */
 export async function handleEditSelection(
   env: Bindings,
   flowData: FlowData,
   threadTs: string,
 ): Promise<Response> {
-  await sendSlackMessage(
+  const blocks = [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: MESSAGES.PROMPTS.WHAT_FIELD_TO_FIX,
+      },
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "📅 日付",
+            emoji: true,
+          },
+          action_id: "edit_date",
+          value: flowData.entryId?.toString() || "",
+        },
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "📝 タイトル",
+            emoji: true,
+          },
+          action_id: "edit_title",
+          value: flowData.entryId?.toString() || "",
+        },
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "🔗 リンク",
+            emoji: true,
+          },
+          action_id: "edit_link",
+          value: flowData.entryId?.toString() || "",
+        },
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "❌ キャンセル",
+            emoji: true,
+          },
+          action_id: "cancel_edit",
+          value: flowData.entryId?.toString() || "",
+        },
+      ],
+    },
+  ];
+
+  await sendInteractiveMessage(
     env.SLACK_BOT_TOKEN,
     flowData.channel,
     threadTs,
-    MESSAGES.PROMPTS.WHAT_FIELD_TO_FIX,
+    "",
+    blocks,
   );
   return new Response("OK");
 }
@@ -439,14 +539,32 @@ async function handleEditInput(
   if (field === "date") {
     processedInput = formatDateInput(input);
     if (!processedInput || !/^\d{4}\/\d{2}\/\d{2}$/.test(processedInput)) {
-      await sendSlackMessage(
+      await sendColoredSlackMessage(
         env.SLACK_BOT_TOKEN,
         flowData.channel,
         threadTs,
         MessageUtils.formatDateInvalid(input),
+        'danger',
       );
       return new Response("OK");
     }
+  }
+
+  // リンクの場合はURL検証
+  if (field === "link") {
+    const cleanInput = input.trim();
+    if (!isValidUrl(cleanInput)) {
+      await sendColoredSlackMessage(
+        env.SLACK_BOT_TOKEN,
+        flowData.channel,
+        threadTs,
+        MessageUtils.formatLinkInvalid(cleanInput),
+        'danger',
+      );
+      return new Response("OK");
+    }
+    // Slackハイパーリンク形式からURLを抽出
+    processedInput = cleanInput.toLowerCase() === "no" ? "" : extractUrlFromSlackFormat(cleanInput);
   }
 
   // データベース更新
@@ -493,18 +611,19 @@ async function handleEditInput(
   await storeThreadData(env, threadTs, flowData);
 
   // 完了メッセージ
-  await sendSlackMessage(
+  await sendColoredSlackMessage(
     env.SLACK_BOT_TOKEN,
     flowData.channel,
     threadTs,
     MessageUtils.formatUpdateField(field, processedInput),
+    'good',
   );
 
   return new Response("OK");
 }
 
 /**
- * エントリ削除処理（簡略化）
+ * エントリ削除処理（確認ボタン付き）
  */
 export async function handleDeleteEntry(
   env: Bindings,
@@ -512,20 +631,58 @@ export async function handleDeleteEntry(
   threadTs: string,
 ): Promise<Response> {
   if (!flowData.entryId) {
-    await sendSlackMessage(
+    await sendColoredSlackMessage(
       env.SLACK_BOT_TOKEN,
       flowData.channel,
       threadTs,
       MESSAGES.ERRORS.DATA_NOT_FOUND,
+      'danger',
     );
     return new Response("OK");
   }
 
-  await sendSlackMessage(
+  const blocks = [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: MessageUtils.formatDeleteConfirm(flowData.entryId),
+      },
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "🗑️ 削除実行",
+            emoji: true,
+          },
+          style: "danger",
+          action_id: "confirm_delete",
+          value: flowData.entryId.toString(),
+        },
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "❌ キャンセル",
+            emoji: true,
+          },
+          action_id: "cancel_delete",
+          value: flowData.entryId.toString(),
+        },
+      ],
+    },
+  ];
+
+  await sendInteractiveMessage(
     env.SLACK_BOT_TOKEN,
     flowData.channel,
     threadTs,
-    MessageUtils.formatDeleteConfirm(flowData.entryId),
+    "",
+    blocks,
   );
   return new Response("OK");
 }
@@ -553,21 +710,23 @@ export async function confirmDelete(
 
     await deleteThreadData(env, threadTs);
 
-    await sendSlackMessage(
+    await sendColoredSlackMessage(
       env.SLACK_BOT_TOKEN,
       flowData.channel,
       threadTs,
       MessageUtils.formatDeleteEntry(flowData.entryId),
+      'warning',
     );
   } catch (error) {
     console.error("Delete error:", error);
-    await sendSlackMessage(
+    await sendColoredSlackMessage(
       env.SLACK_BOT_TOKEN,
       flowData.channel,
       threadTs,
       MessageUtils.formatDeleteFailed(
         error instanceof Error ? error.message : MESSAGES.ERRORS.UNKNOWN_ERROR,
       ),
+      'danger',
     );
   }
 

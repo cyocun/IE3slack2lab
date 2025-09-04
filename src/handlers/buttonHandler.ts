@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import type { Bindings } from "../types";
 import { getThreadData, storeThreadData, deleteThreadData } from "../utils/kv";
-import { sendSlackMessage, sendInteractiveMessage } from "../utils/slack";
+import { sendSlackMessage, sendColoredSlackMessage, sendInteractiveMessage } from "../utils/slack";
 import {
   FlowData,
   FLOW_STATE,
@@ -29,11 +29,12 @@ export async function handleButtonInteraction(
     const flowData = (await getThreadData(env, threadTs)) as FlowData;
 
     if (!flowData) {
-      await sendSlackMessage(
+      await sendColoredSlackMessage(
         env.SLACK_BOT_TOKEN,
         channel,
         threadTs,
         MESSAGES.ERRORS.DATA_NOT_FOUND,
+        'danger',
       );
       return c.text("OK");
     }
@@ -99,11 +100,12 @@ async function handleCancelUpload(
   threadTs: string,
 ): Promise<void> {
   await deleteThreadData(env, threadTs);
-  await sendSlackMessage(
+  await sendColoredSlackMessage(
     env.SLACK_BOT_TOKEN,
     flowData.channel,
     threadTs,
     MESSAGES.SUCCESS.CANCELLED,
+    'warning',
   );
 }
 
@@ -209,11 +211,12 @@ async function handleCancelEdit(
   delete flowData.editingField;
   await storeThreadData(env, threadTs, flowData);
 
-  await sendSlackMessage(
+  await sendColoredSlackMessage(
     env.SLACK_BOT_TOKEN,
     flowData.channel,
     threadTs,
     MESSAGES.SUCCESS.CANCELLED,
+    'warning',
   );
 }
 
@@ -225,10 +228,11 @@ async function handleCancelDelete(
   flowData: FlowData,
   threadTs: string,
 ): Promise<void> {
-  await sendSlackMessage(
+  await sendColoredSlackMessage(
     env.SLACK_BOT_TOKEN,
     flowData.channel,
     threadTs,
     MESSAGES.SUCCESS.CANCELLED,
+    'warning',
   );
 }

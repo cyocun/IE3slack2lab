@@ -24,12 +24,18 @@ export const MESSAGES = {
     FIELD_UPDATED: "✅ {field}を更新しました",
     CANCELLED: "キャンセル👌",
   },
+  PROGRESS: {
+    UPLOAD_STARTING: "🔄 ちょっと待ってね！画像をアップロード中だよ...",
+    UPLOAD_PROCESSING: "📤 いい写真だね！GitHubにアップロード中...",
+  },
   PROMPTS: {
     DATE_INPUT: "📅 *いつの写真？*\nYYYY/MM/DD、YYYYMMDD、MMDD",
     DATE_INVALID:
       "😅「{input}」は認識できない\nYYYY/MM/DD、YYYYMMDD、MMDD で！",
     TITLE_INPUT: "📝 *タイトルは？*\n「no」かスキップでなしにできるよ",
     LINK_INPUT: "🔗 *リンクは？*\n「no」か投稿ボタンでスキップ",
+    LINK_INVALID:
+      "😅「{input}」は正しいURLじゃないよ！\nhttps://example.com の形式で入力するか、「no」でスキップしてね",
     WHAT_TO_EDIT: "🔧 *何を修正しますか？*",
     EDIT_DATE: "📅 新しい日付（YYYY/MM/DD、YYYYMMDD、MMDD）",
     EDIT_TITLE: "📝 新しいタイトル（「no」でなし）",
@@ -172,6 +178,9 @@ export const MessageUtils = {
 
   formatDateInvalid: (input: string) =>
     MESSAGES.PROMPTS.DATE_INVALID.replace("{input}", input),
+
+  formatLinkInvalid: (input: string) =>
+    MESSAGES.PROMPTS.LINK_INVALID.replace("{input}", input),
 
   formatDeleteConfirm: (id: number) =>
     MESSAGES.PROMPTS.DELETE_CONFIRM.replace("{id}", id.toString()),
