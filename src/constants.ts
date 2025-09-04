@@ -127,18 +127,15 @@ export const MESSAGES = {
     UNAUTHORIZED: "Unauthorized",
     INVALID_JSON: "Invalid JSON",
     INTERNAL_SERVER_ERROR: "Internal Server Error",
-    DATA_NOT_FOUND: "データがない🤔",
+    DATA_NOT_FOUND: "データがない?... 🤔",
     UPLOAD_ERROR: "❌ 画像の処理中にエラーが発生した",
-    MISSING_DATA: "データが足りない🤔",
+    MISSING_DATA: "データが足りない?... 🤔",
     MISSING_DATA_RETRY: "もう一度日付を入力してください🙏\n`YYYY/MM/DD、YYYYMMDD、MMDD`",
-    UNKNOWN_ERROR: "原因不明",
+    UNKNOWN_ERROR: "原因不明🤷‍♂️",
   },
   SUCCESS: {
     UPLOAD_COMPLETE: "🎉 UP DONE 🎉",
     CANCELLED: "キャンセル Done👌",
-  },
-  PROGRESS: {
-    UPLOAD_PROCESSING: "📤 UP中...\n```UP DONEがでない？\nタイムアウトしてるけど終わってるかも。\ncheck it out -> <https://ie3.jp/lab>```",
   },
   PROMPTS: {
     DATE_INPUT: "📅 *いつ？*\n`YYYY/MM/DD、YYYYMMDD、MMDD`",
@@ -181,8 +178,8 @@ export const MESSAGES = {
     DELETE_ENTRY: "削除完了👋 ID: {id}",
   },
   ERROR_HANDLING: {
-    UPLOAD_FAILED: "エラー！😱\n{message}\nもう一度お願い！",
-    DELETE_FAILED: "削除エラー😱\n{message}\nもう一度お願い！",
+    UPLOAD_FAILED: "エラー！😱\n{message}\nもう一度！🙏",
+    DELETE_FAILED: "削除エラー😱\n{message}\nもう一度！🙏",
     FIELD_NAMES: {
       date: "日付",
       title: "タイトル",
