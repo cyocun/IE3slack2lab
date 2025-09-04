@@ -130,6 +130,7 @@ export const MESSAGES = {
     DATA_NOT_FOUND: "データがない🤔",
     UPLOAD_ERROR: "❌ 画像の処理中にエラーが発生した",
     MISSING_DATA: "データが足りない🤔",
+    MISSING_DATA_RETRY: "もう一度日付を入力してください🙏\n`YYYY/MM/DD、YYYYMMDD、MMDD`",
     UNKNOWN_ERROR: "原因不明",
   },
   SUCCESS: {

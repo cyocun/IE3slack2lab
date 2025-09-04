@@ -28,11 +28,22 @@ export async function completeUpload(
   threadTs: string,
 ): Promise<Response> {
   if (!flowData.imageFile || !flowData.collectedData?.date) {
+    console.error("Missing critical data for upload:", {
+      hasImageFile: !!flowData.imageFile,
+      hasDate: !!flowData.collectedData?.date,
+      flowState: flowData.flowState,
+      threadTs
+    });
+    
+    // データが不足している場合、再度フローを開始できるように状態をリセット
+    flowData.flowState = FLOW_STATE.WAITING_DATE;
+    await storeThreadData(env, threadTs, flowData, KV_CONFIG.THREAD_TTL);
+    
     await sendSlackMessage(
       env.SLACK_BOT_TOKEN,
       flowData.channel,
       threadTs,
-      MESSAGES.ERRORS.MISSING_DATA,
+      `${MESSAGES.ERRORS.MISSING_DATA}\n${MESSAGES.ERRORS.MISSING_DATA_RETRY}`,
     );
     return new Response("OK");
   }
