@@ -40,7 +40,7 @@ export async function handleEditSelection(
           type: "button",
           text: {
             type: "plain_text",
-            text: "📅 日付",
+            text: BUTTONS.EDIT_DATE,
             emoji: true,
           },
           action_id: "edit_date",
@@ -50,7 +50,7 @@ export async function handleEditSelection(
           type: "button",
           text: {
             type: "plain_text",
-            text: "📝 タイトル",
+            text: BUTTONS.EDIT_TITLE,
             emoji: true,
           },
           action_id: "edit_title",
@@ -60,7 +60,7 @@ export async function handleEditSelection(
           type: "button",
           text: {
             type: "plain_text",
-            text: "🔗 リンク",
+            text: BUTTONS.EDIT_LINK,
             emoji: true,
           },
           action_id: "edit_link",

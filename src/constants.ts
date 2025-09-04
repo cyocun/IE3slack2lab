@@ -103,6 +103,13 @@ export const BUTTONS = {
   POST_NOW: "💾 投稿",
   TODAY: "📅 TODAY!",
   DELETE_CONFIRM: "🗑️ 削除実行",
+  // 編集機能用のボタンラベル
+  EDIT_DATE: "📅 日付",
+  EDIT_TITLE: "📝 タイトル",
+  EDIT_LINK: "🔗 リンク",
+  // アップロード完了後のボタンラベル
+  EDIT_ENTRY: "✏️ 修正",
+  DELETE_ENTRY: "🗑️ 削除",
 } as const;
 
 /**

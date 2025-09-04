@@ -11,7 +11,7 @@ import { sendSlackMessage, sendColoredSlackMessage, getSlackFile, sanitizeFileNa
 import { uploadToGitHub, getCurrentJsonData } from "../github";
 import { optimizeImage, changeExtensionToWebP } from "../utils/imageOptimizer";
 import { storeThreadData } from "../utils/kv";
-import { MESSAGES, ENDPOINTS, KV_CONFIG, LOG_MESSAGES, BACKGROUND_MESSAGES } from "../constants";
+import { MESSAGES, ENDPOINTS, KV_CONFIG, LOG_MESSAGES, BACKGROUND_MESSAGES, BUTTONS } from "../constants";
 import { MessageUtils } from "../utils/messageFormatter";
 
 /**
@@ -193,7 +193,7 @@ async function sendSuccessMessage(
             type: "button",
             text: {
               type: "plain_text",
-              text: "✏️ 修正",
+              text: BUTTONS.EDIT_ENTRY,
               emoji: true,
             },
             action_id: "edit_entry",
@@ -203,7 +203,7 @@ async function sendSuccessMessage(
             type: "button",
             text: {
               type: "plain_text",
-              text: "🗑️ 削除",
+              text: BUTTONS.DELETE_ENTRY,
               emoji: true,
             },
             action_id: "delete_entry",
