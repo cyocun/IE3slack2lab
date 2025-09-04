@@ -1,4 +1,5 @@
 import type { MessageMetadata, Bindings } from '../types'
+import { COMMANDS, VALIDATION, ENDPOINTS, BUTTON_LABELS } from '../constants'
 
 /**
  * Slack Webhook署名を検証
@@ -19,7 +20,7 @@ export async function verifySlackSignature(
 
   // タイムスタンプの鮮度確認（最大5分前まで）
   const time = Math.floor(Date.now() / 1000)
-  if (Math.abs(time - parseInt(timestamp)) > 300) return false
+  if (Math.abs(time - parseInt(timestamp)) > VALIDATION.MAX_TIMESTAMP_DIFF) return false
 
   // 署名ベース文字列の作成
   const baseString = `v0:${timestamp}:${body}`
@@ -78,15 +79,19 @@ export function parseMessage(text: string): MessageMetadata {
  * @param text - Slackメッセージテキスト
  * @returns 操作タイプまたはnull
  */
-export function detectThreadCommand(text: string): 'delete' | 'update' | null {
+export function detectThreadCommand(text: string): 'delete' | 'update' | 'edit' | null {
   const trimmedText = text.trim().toLowerCase()
   
   if (trimmedText === 'delete' || trimmedText === '削除') {
     return 'delete'
   }
   
+  if (COMMANDS.EDIT.some(cmd => trimmedText === cmd)) {
+    return 'edit'
+  }
+  
   // 更新の場合は、date:, title:, link: のいずれかが含まれている
-  if (/^(date|title|link):/m.test(text.toLowerCase())) {
+  if (COMMANDS.UPDATE_PATTERNS.test(text.toLowerCase())) {
     return 'update'
   }
   
@@ -137,6 +142,44 @@ export function formatDateInput(dateInput: string): string {
   return ''
 }
 
+/**
+ * ファイル名を安全な英数字形式に変換
+ * @param fileName - 元のファイル名
+ * @returns 英数字のみのファイル名
+ */
+export function sanitizeFileName(fileName: string): string {
+  // ファイル名と拡張子を分離
+  const lastDotIndex = fileName.lastIndexOf('.')
+  const name = lastDotIndex !== -1 ? fileName.substring(0, lastDotIndex) : fileName
+  const extension = lastDotIndex !== -1 ? fileName.substring(lastDotIndex) : ''
+  
+  // 英数字とハイフン、アンダースコアのみを許可
+  const cleanName = name.replace(/[^a-zA-Z0-9\-_]/g, '')
+  
+  // 空になった場合や非英数字が多い場合はハッシュを使用
+  if (cleanName.length < VALIDATION.MIN_FILENAME_LENGTH) {
+    const hash = generateSimpleHash(name)
+    return `file_${hash}${extension}`
+  }
+  
+  return `${cleanName}${extension}`
+}
+
+/**
+ * 文字列から簡単なハッシュを生成
+ * @param str - ハッシュ化する文字列
+ * @returns ハッシュ値（英数字）
+ */
+function generateSimpleHash(str: string): string {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // 32bit整数に変換
+  }
+  return Math.abs(hash).toString(36).substring(0, 8)
+}
+
 
 /**
  * ボットトークンを使用してSlackからファイルをダウンロード
@@ -167,7 +210,7 @@ export async function sendSlackMessage(
   threadTs: string | undefined,
   text: string
 ): Promise<void> {
-  await fetch('https://slack.com/api/chat.postMessage', {
+  await fetch(ENDPOINTS.SLACK_API.CHAT_POST_MESSAGE, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -179,4 +222,116 @@ export async function sendSlackMessage(
       text
     })
   })
+}
+
+/**
+ * Slackチャンネルにインタラクティブメッセージを送信
+ * @param token - Slackボットトークン
+ * @param channel - 対象チャンネル
+ * @param threadTs - スレッドタイムスタンプ（オプション）
+ * @param text - メッセージテキスト
+ * @param blocks - Slack Block Kit blocks
+ */
+export async function sendInteractiveMessage(
+  token: string,
+  channel: string,
+  threadTs: string | undefined,
+  text: string,
+  blocks: any[]
+): Promise<void> {
+  await fetch('https://slack.com/api/chat.postMessage', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      channel,
+      thread_ts: threadTs,
+      text,
+      blocks
+    })
+  })
+}
+
+/**
+ * 編集用インタラクティブボタンを作成
+ * @param entryId - エントリID
+ * @param isPending - 保留中かどうか
+ * @returns Slack Block Kit blocks
+ */
+export function createEditButtons(entryId: number | undefined, isPending: boolean = false): any[] {
+  const actionId = isPending ? 'pending' : 'edit'
+  
+  return [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: "🔧 *何を修正しますか？*"
+      }
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "📅 日付",
+            emoji: true
+          },
+          style: "primary",
+          action_id: `${actionId}_date`,
+          value: entryId?.toString() || "pending"
+        },
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "📝 タイトル",
+            emoji: true
+          },
+          action_id: `${actionId}_title`,
+          value: entryId?.toString() || "pending"
+        },
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "🔗 リンク",
+            emoji: true
+          },
+          action_id: `${actionId}_link`,
+          value: entryId?.toString() || "pending"
+        }
+      ]
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "🗑️ 削除",
+            emoji: true
+          },
+          style: "danger",
+          action_id: `${actionId}_delete`,
+          value: entryId?.toString() || "pending"
+        },
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "❌ キャンセル",
+            emoji: true
+          },
+          action_id: `${actionId}_cancel`,
+          value: entryId?.toString() || "pending"
+        }
+      ]
+    }
+  ]
 }

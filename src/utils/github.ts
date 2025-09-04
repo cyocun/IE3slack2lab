@@ -1,4 +1,5 @@
 import type { Bindings, LabEntry } from '../types'
+import { VALIDATION } from '../constants'
 
 /**
  * 画像とJSONデータをGitHubリポジトリにアップロード
@@ -243,7 +244,7 @@ function base64ToUtf8(base64: string): string {
 async function convertArrayBufferToBase64(content: ArrayBuffer): Promise<string> {
   const uint8Array = new Uint8Array(content)
   let binaryString = ''
-  const chunkSize = 0x1000 // スタックオーバーフロー回避のための小さいチャンクサイズ
+  const chunkSize = VALIDATION.CHUNK_SIZE // スタックオーバーフロー回避のための小さいチャンクサイズ
 
   for (let i = 0; i < uint8Array.length; i += chunkSize) {
     const end = Math.min(i + chunkSize, uint8Array.length)

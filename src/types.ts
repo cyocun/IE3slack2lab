@@ -66,9 +66,113 @@ export interface ThreadData {
     date?: string
     url?: string
   }
+  /** 編集待ち状態 */
+  waitingForEdit?: {
+    type: EditType
+    message: string
+  }
 }
 
 /**
  * スレッド操作のタイプ
  */
 export type ThreadAction = 'edit' | 'delete' | 'update'
+
+/**
+ * 編集タイプ
+ */
+export type EditType = 'date' | 'title' | 'link'
+
+/**
+ * Slack Event API のイベント構造
+ */
+export interface SlackEvent {
+  type: string
+  ts: string
+  thread_ts?: string
+  channel: string
+  user: string
+  text?: string
+  files?: SlackFile[]
+  bot_id?: string
+}
+
+/**
+ * Slack ファイル構造
+ */
+export interface SlackFile {
+  id: string
+  name: string
+  mimetype: string
+  url_private_download: string
+}
+
+/**
+ * Slack Webhook ペイロード構造
+ */
+export interface SlackWebhookPayload {
+  type: string
+  challenge?: string
+  event?: SlackEvent
+}
+
+/**
+ * Slack インタラクティブ ペイロード構造
+ */
+export interface SlackInteractivePayload {
+  type: string
+  actions?: Array<{
+    action_id: string
+    value: string
+  }>
+  channel: {
+    id: string
+  }
+  message: {
+    ts: string
+    thread_ts?: string
+  }
+  view?: {
+    callback_id: string
+    state: {
+      values: {
+        edit_input: {
+          edit_value: {
+            value: string
+          }
+        }
+      }
+    }
+  }
+  user: {
+    id: string
+  }
+}
+
+/**
+ * GitHub API レスポンス構造
+ */
+export interface GitHubBranchResponse {
+  object: {
+    sha: string
+  }
+}
+
+export interface GitHubCommitResponse {
+  tree: {
+    sha: string
+  }
+}
+
+export interface GitHubBlobResponse {
+  sha: string
+}
+
+export interface GitHubTreeResponse {
+  sha: string
+}
+
+export interface GitHubContentsResponse {
+  content?: string
+  sha?: string
+}
