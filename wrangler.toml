@@ -6,7 +6,7 @@ account_id = "174a228859d1986be1c1831363b39bca"
 [vars]
 IMAGE_PATH = "public/images/"
 JSON_PATH = "app/data/lab.json"
-GITHUB_BRANCH = "main"
+GITHUB_BRANCH = "pre"
 
 # KV Storage for thread management
 [[kv_namespaces]]

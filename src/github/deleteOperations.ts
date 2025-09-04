@@ -103,7 +103,7 @@ export async function deleteImageAndUpdateJson(
 
     const jsonBlobData = await jsonBlobResponse.json() as GitHubBlob;
 
-    // 現在のツリー構造を取得
+    // 現在のツリー構造を取得（再帰）
     const treeResponse = await fetch(
       urlBuilder.gitTrees(currentTreeSha, true),
       { headers: authHeaders },
@@ -115,24 +115,30 @@ export async function deleteImageAndUpdateJson(
 
     const treeData = await treeResponse.json() as GitHubTree;
 
-    // 新しいツリー構造を構築（削除するファイルを除外）
+    // blob（ファイル）のみで新ツリーを再構築し、対象画像を除外
+    let removed = false;
     const newTree = treeData.tree
+      .filter((item: any) => item.type === 'blob')
       .filter((item: any) => {
-        // 削除対象の画像パスを除外
-        const shouldExclude = item.path === imagePath || item.path === `${env.IMAGE_PATH}${imagePath}`;
-        if (shouldExclude) {
-          console.log(`Excluding from tree: ${item.path}`);
+        const isTarget = item.path === imagePath;
+        if (isTarget) {
+          removed = true;
+          console.log(`Excluding image blob from tree: ${item.path}`);
         }
-        return !shouldExclude;
+        return !isTarget;
       })
       .map((item: any) => ({
         path: item.path,
         mode: item.mode,
-        type: item.type,
+        type: 'blob',
         sha: item.path === JSON_PATH ? jsonBlobData.sha : item.sha,
       }));
 
-    // 新しいツリーを作成
+    if (!removed) {
+      console.log(`Warning: target image not found in tree: ${imagePath}`);
+    }
+
+    // 新しいツリーを作成（完全ツリーを渡す）
     const newTreeResponse = await fetch(
       urlBuilder.gitTrees(),
       {
