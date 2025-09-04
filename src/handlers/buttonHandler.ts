@@ -261,10 +261,35 @@ async function handleTodayDate(
   flowData.flowState = FLOW_STATE.WAITING_TITLE;
   await storeThreadData(env, threadTs, flowData);
 
-  await sendSlackMessage(
+  // タイトル入力を促す（ボタン付き）
+  const blocks = [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `${MESSAGES.FLOW_STATUS.DATE_CONFIRMED.replace("{date}", todayDate)}\n\n${MESSAGES.PROMPTS.TITLE_INPUT}`,
+      },
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: BUTTONS.SKIP,
+          },
+          action_id: "skip_title",
+        },
+      ],
+    },
+  ];
+
+  await sendInteractiveMessage(
     env.SLACK_BOT_TOKEN,
     flowData.channel,
     threadTs,
-    `${MESSAGES.FLOW_STATUS.DATE_CONFIRMED.replace("{date}", todayDate)}\n\n${MESSAGES.PROMPTS.TITLE_INPUT}`,
+    "",
+    blocks,
   );
 }
