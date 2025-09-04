@@ -83,7 +83,7 @@ function buildSuccessMessage(
     if (link) message += `🔗  ${link}\n`;
 
     message +=
-    `👩‍💻 https://ie3.jp/lab \n` +
+    `👩‍💻  <https://ie3.jp/lab>\n` +
     `\`\`\``;
 
   return message;
