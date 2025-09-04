@@ -8,7 +8,6 @@ import type { GitHubBlob, GitHubTree, GitHubCommit } from "./types";
 import { GITHUB_BOT, COMMIT_PREFIXES } from "../constants";
 import { createJsonHeaders, getCurrentCommitSha, getCommitDetails, handleGitHubApiError } from "./githubApi";
 import { createGitHubUrlBuilder } from "./urlBuilder";
-import { getCurrentJsonData } from "./dataOperations";
 
 /**
  * ArrayBufferをBase64文字列に変換
@@ -43,7 +42,7 @@ export async function uploadToGitHub(
   env: Bindings,
   fileName: string,
   content: ArrayBuffer,
-  newEntry: LabEntry,
+  jsonData: LabEntry[],
 ): Promise<void> {
   const {
     GITHUB_TOKEN,
@@ -54,10 +53,6 @@ export async function uploadToGitHub(
   
   const jsonHeaders = createJsonHeaders(GITHUB_TOKEN);
   const urlBuilder = createGitHubUrlBuilder(env);
-
-  // 最新のJSONデータを取得してマージ
-  const currentData = await getCurrentJsonData(env);
-  const mergedJsonData = [newEntry, ...currentData];
 
   // 現在のコミットSHAとツリー情報を取得
   const currentCommitSha = await getCurrentCommitSha(env);
@@ -91,7 +86,7 @@ export async function uploadToGitHub(
       method: "POST",
       headers: jsonHeaders,
       body: JSON.stringify({
-        content: utf8ToBase64(JSON.stringify(mergedJsonData, null, 2)),
+        content: utf8ToBase64(JSON.stringify(jsonData, null, 2)),
         encoding: "base64",
       }),
     },

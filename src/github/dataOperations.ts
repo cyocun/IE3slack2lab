@@ -127,7 +127,7 @@ export async function updateJsonOnGitHub(
 
   // ファイルを更新
   const updateResponse = await fetch(
-    urlBuilder.contents(JSON_PATH),
+    urlBuilder.contents(JSON_PATH, GITHUB_BRANCH),
     {
       method: "PUT",
       headers: {
@@ -138,6 +138,7 @@ export async function updateJsonOnGitHub(
         message: commitMessage,
         content: utf8ToBase64(JSON.stringify(jsonData, null, 2)),
         sha: currentSha,
+        branch: GITHUB_BRANCH,
         committer: GITHUB_BOT,
       }),
     },

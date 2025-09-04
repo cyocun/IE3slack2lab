@@ -58,13 +58,51 @@ export const ENDPOINTS = {
 } as const;
 
 /**
+ * ログメッセージ定数
+ */
+export const LOG_MESSAGES = {
+  PROCESSING: {
+    DOWNLOADING_IMAGE: "📥 Downloading image from Slack...",
+    OPTIMIZING_IMAGE: "🖼️ Optimizing image...",
+    PREPARING_JSON: "📊 Preparing JSON data...",
+    UPLOADING_TO_GITHUB: "📤 Uploading to GitHub...",
+  },
+  SUCCESS: {
+    GITHUB_UPLOAD_COMPLETED: "✅ GitHub upload completed successfully",
+    SUCCESS_MESSAGE_SENT: "✅ Success message sent",
+  },
+  ERROR: {
+    GITHUB_UPLOAD_FAILED: "❌ GitHub upload failed:",
+    UPLOAD_PROCESS_ERROR: "❌ Upload process error:",
+    SUCCESS_MESSAGE_FAILED: "⚠️ Failed to send success message to Slack:",
+    FALLBACK_MESSAGE_FAILED: "❌ Fallback message also failed:",
+    SLACK_MESSAGE_FAILED: "❌ Failed to send error message to Slack:",
+  },
+} as const;
+
+/**
+ * バックグラウンド処理メッセージ
+ */
+export const BACKGROUND_MESSAGES = {
+  UPLOAD_STARTED: "⏳ アップロード処理を開始しました...",
+  DELETE_STARTED: "⏳ 削除処理を実行しています...",
+  UPLOAD_ERROR: "❌ アップロード処理でエラーが発生しました: {error}",
+  DELETE_ERROR: "❌ 削除処理でエラーが発生しました: {error}",
+  UPLOAD_SUCCESS_FALLBACK: "✅ アップロード成功\nID: {id}\nファイル: {fileName}\n\n⚠️ 詳細メッセージの送信に失敗しました",
+  PARTIAL_SUCCESS: "⚠️ 部分的な成功\n\nGitHubへのアップロードは成功しました：\n• ID: {id}\n• ファイル: {fileName}\n\n但し、後続処理でエラーが発生：\n{error}",
+  UNKNOWN_ERROR: "不明なエラー",
+} as const;
+
+/**
  * ボタンテキスト定数
  */
 export const BUTTONS = {
   CANCEL_UPLOAD: "❌ 取り消し",
+  CANCEL: "❌ キャンセル",
   SKIP: "スキップ",
   POST_NOW: "💾 投稿",
   TODAY: "📅 TODAY!",
+  DELETE_CONFIRM: "🗑️ 削除実行",
 } as const;
 
 /**

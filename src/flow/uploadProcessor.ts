@@ -11,7 +11,7 @@ import { sendSlackMessage, sendColoredSlackMessage, getSlackFile, sanitizeFileNa
 import { uploadToGitHub, getCurrentJsonData } from "../github";
 import { optimizeImage, changeExtensionToWebP } from "../utils/imageOptimizer";
 import { storeThreadData } from "../utils/kv";
-import { MESSAGES, ENDPOINTS, KV_CONFIG } from "../constants";
+import { MESSAGES, ENDPOINTS, KV_CONFIG, LOG_MESSAGES, BACKGROUND_MESSAGES } from "../constants";
 import { MessageUtils } from "../utils/messageFormatter";
 
 /**
@@ -37,23 +37,21 @@ export async function completeUpload(
     return new Response("OK");
   }
 
+  let uploadSucceeded = false;
+  let newEntry: LabEntry | undefined;
+  let newId: number | undefined;
+  let fileName: string | undefined;
+  
   try {
-    // 処理開始メッセージを送信（褒め言葉付き）
-    const praise = MessageUtils.getRandomPraise("processing");
-    await sendSlackMessage(
-      env.SLACK_BOT_TOKEN,
-      flowData.channel,
-      threadTs,
-      `${praise}\n${MESSAGES.PROGRESS.UPLOAD_PROCESSING}`,
-    );
-
     // 画像をダウンロード
+    console.log(LOG_MESSAGES.PROCESSING.DOWNLOADING_IMAGE);
     const imageBuffer = await getSlackFile(
       flowData.imageFile.url,
       env.SLACK_BOT_TOKEN,
     );
 
     // 画像を最適化（リサイズとWebP変換）
+    console.log(LOG_MESSAGES.PROCESSING.OPTIMIZING_IMAGE);
     const optimizedImageBuffer = await optimizeImage(imageBuffer, 1200, 1200);
 
     // ファイル名の生成（WebP拡張子に変更）
@@ -61,16 +59,17 @@ export async function completeUpload(
     const [year, month] = flowData.collectedData.date.split("/");
     const sanitizedName = sanitizeFileName(flowData.imageFile.name);
     const webpFileName = changeExtensionToWebP(sanitizedName);
-    const fileName = `${timestamp}_${webpFileName}`;
+    fileName = `${timestamp}_${webpFileName}`;
     const fullPath = `${year}/${month}/${fileName}`;
 
     // JSONデータの準備
+    console.log(LOG_MESSAGES.PROCESSING.PREPARING_JSON);
     const currentData = await getCurrentJsonData(env);
-    const newId = currentData.length
+    newId = currentData.length
       ? Math.max(...currentData.map((item) => item.id)) + 1
       : 1;
 
-    const newEntry: LabEntry = {
+    newEntry = {
       id: newId,
       image: `/${env.IMAGE_PATH}${fullPath}`,
       title: flowData.collectedData.title || "",
@@ -79,7 +78,19 @@ export async function completeUpload(
     };
 
     // GitHubへアップロード（最適化された画像を使用）
-    await uploadToGitHub(env, fullPath, optimizedImageBuffer, newEntry);
+    console.log(LOG_MESSAGES.PROCESSING.UPLOADING_TO_GITHUB);
+    try {
+      // 最新のデータを取得してマージ（アップロード直前に再度取得）
+      const latestData = await getCurrentJsonData(env);
+      const mergedData = [newEntry, ...latestData];
+      
+      await uploadToGitHub(env, fullPath, optimizedImageBuffer, mergedData);
+      uploadSucceeded = true;
+      console.log(LOG_MESSAGES.SUCCESS.GITHUB_UPLOAD_COMPLETED);
+    } catch (githubError) {
+      console.error(LOG_MESSAGES.ERROR.GITHUB_UPLOAD_FAILED, githubError);
+      throw githubError;
+    }
 
     // フロー状態を更新
     flowData.flowState = FLOW_STATE.COMPLETED;
@@ -87,20 +98,51 @@ export async function completeUpload(
     await storeThreadData(env, threadTs, flowData, KV_CONFIG.COMPLETED_TTL);
 
     // 完了メッセージ（ボタン付き）を送信
-    await sendSuccessMessage(env, flowData, threadTs, fileName, newEntry, newId);
+    console.log("📨 Sending success message to Slack...");
+    try {
+      await sendSuccessMessage(env, flowData, threadTs, fileName, newEntry, newId);
+      console.log(LOG_MESSAGES.SUCCESS.SUCCESS_MESSAGE_SENT);
+    } catch (slackError) {
+      console.error(LOG_MESSAGES.ERROR.SUCCESS_MESSAGE_FAILED, slackError);
+      // GitHub成功したがSlackメッセージ失敗の場合、簡易メッセージを送信
+      try {
+        await sendSlackMessage(
+          env.SLACK_BOT_TOKEN,
+          flowData.channel,
+          threadTs,
+          BACKGROUND_MESSAGES.UPLOAD_SUCCESS_FALLBACK.replace('{id}', newId.toString()).replace('{fileName}', fileName),
+        );
+      } catch (fallbackError) {
+        console.error(LOG_MESSAGES.ERROR.FALLBACK_MESSAGE_FAILED, fallbackError);
+      }
+    }
     
     return new Response("OK");
   } catch (error) {
-    console.error("Upload error:", error);
-    await sendColoredSlackMessage(
-      env.SLACK_BOT_TOKEN,
-      flowData.channel,
-      threadTs,
-      MessageUtils.formatUploadFailed(
-        error instanceof Error ? error.message : MESSAGES.ERRORS.UNKNOWN_ERROR,
-      ),
-      'danger',
-    );
+    console.error(LOG_MESSAGES.ERROR.UPLOAD_PROCESS_ERROR, error);
+    
+    // エラーメッセージを構築
+    let errorMessage = error instanceof Error ? error.message : MESSAGES.ERRORS.UNKNOWN_ERROR;
+    
+    // 部分的な成功情報を含める
+    if (uploadSucceeded && newId && fileName) {
+      errorMessage = BACKGROUND_MESSAGES.PARTIAL_SUCCESS.replace('{id}', newId.toString()).replace('{fileName}', fileName).replace('{error}', errorMessage);
+    } else {
+      errorMessage = MessageUtils.formatUploadFailed(errorMessage);
+    }
+    
+    try {
+      await sendColoredSlackMessage(
+        env.SLACK_BOT_TOKEN,
+        flowData.channel,
+        threadTs,
+        errorMessage,
+        uploadSucceeded ? 'warning' : 'danger',
+      );
+    } catch (messageError) {
+      console.error(LOG_MESSAGES.ERROR.SLACK_MESSAGE_FAILED, messageError);
+    }
+    
     return new Response("OK");
   }
 }

@@ -23,7 +23,7 @@ export async function deleteFileFromGitHub(
   
   // ファイル情報を取得
   const fileResponse = await fetch(
-    urlBuilder.contents(filePath),
+    urlBuilder.contents(filePath, GITHUB_BRANCH),
     { headers: createAuthHeaders(GITHUB_TOKEN) },
   );
 
@@ -39,7 +39,7 @@ export async function deleteFileFromGitHub(
 
   // ファイルを削除
   const deleteResponse = await fetch(
-    urlBuilder.contents(filePath),
+    urlBuilder.contents(filePath, GITHUB_BRANCH),
     {
       method: "DELETE",
       headers: createJsonHeaders(GITHUB_TOKEN),

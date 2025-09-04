@@ -20,14 +20,14 @@ import {
   handleDeleteEntry,
   confirmDelete,
 } from "../flow";
-import { MESSAGES, KV_CONFIG } from "../constants";
+import { MESSAGES, KV_CONFIG , BACKGROUND_MESSAGES } from "../constants";
 import { BLOCK_TEMPLATES } from "../ui/slackBlocks";
 
 /**
  * ボタンインタラクション処理
  */
 export async function handleButtonInteraction(
-  _c: Context,
+  c: Context,
   env: Bindings,
   payload: any,
 ): Promise<Response> {
@@ -88,7 +88,33 @@ export async function handleButtonInteraction(
         break;
 
       case "post_now":
-        await completeUpload(env, flowData, threadTs);
+        // Slackに即座に応答を返してバックグラウンドで処理を継続
+        c.executionCtx.waitUntil(
+          (async () => {
+            try {
+              // 処理中メッセージを送信
+              await sendSlackMessage(
+                env.SLACK_BOT_TOKEN,
+                channel,
+                threadTs,
+                BACKGROUND_MESSAGES.UPLOAD_STARTED,
+              );
+              
+              // 実際のアップロード処理を実行
+              await completeUpload(env, flowData, threadTs);
+            } catch (error) {
+              console.error("Background upload error:", error);
+              // エラーメッセージをSlackに送信
+              await sendColoredSlackMessage(
+                env.SLACK_BOT_TOKEN,
+                channel,
+                threadTs,
+                BACKGROUND_MESSAGES.UPLOAD_ERROR.replace('{error}', error instanceof Error ? error.message : BACKGROUND_MESSAGES.UNKNOWN_ERROR),
+                "danger",
+              );
+            }
+          })()
+        );
         break;
 
       case "edit_entry":
@@ -110,7 +136,33 @@ export async function handleButtonInteraction(
         break;
 
       case "confirm_delete":
-        await confirmDelete(env, flowData, threadTs);
+        // Slackに即座に応答を返してバックグラウンドで削除処理を継続
+        c.executionCtx.waitUntil(
+          (async () => {
+            try {
+              // 処理中メッセージを送信
+              await sendSlackMessage(
+                env.SLACK_BOT_TOKEN,
+                channel,
+                threadTs,
+                BACKGROUND_MESSAGES.DELETE_STARTED,
+              );
+              
+              // 実際の削除処理を実行
+              await confirmDelete(env, flowData, threadTs);
+            } catch (error) {
+              console.error("Background delete error:", error);
+              // エラーメッセージをSlackに送信
+              await sendColoredSlackMessage(
+                env.SLACK_BOT_TOKEN,
+                channel,
+                threadTs,
+                BACKGROUND_MESSAGES.DELETE_ERROR.replace('{error}', error instanceof Error ? error.message : BACKGROUND_MESSAGES.UNKNOWN_ERROR),
+                "danger",
+              );
+            }
+          })()
+        );
         break;
 
       case "cancel_delete":

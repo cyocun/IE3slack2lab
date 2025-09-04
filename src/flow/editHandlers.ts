@@ -10,7 +10,7 @@ import { validateDateInput, validateLinkInput } from "./flowValidation";
 import { sendColoredSlackMessage, sendInteractiveMessage } from "../utils/slack";
 import { getCurrentJsonData, updateJsonOnGitHub, deleteImageAndUpdateJson } from "../github";
 import { storeThreadData, deleteThreadData, updateEntryById, deleteEntryById, getImagePathByEntryId } from "../utils/kv";
-import { MESSAGES, KV_CONFIG, COMMIT_PREFIXES } from "../constants";
+import { MESSAGES, KV_CONFIG, COMMIT_PREFIXES, BUTTONS } from "../constants";
 import { MessageUtils } from "../utils/messageFormatter";
 
 /**
@@ -70,7 +70,7 @@ export async function handleEditSelection(
           type: "button",
           text: {
             type: "plain_text",
-            text: "❌ キャンセル",
+            text: BUTTONS.CANCEL,
             emoji: true,
           },
           action_id: "cancel_edit",
@@ -233,7 +233,7 @@ export async function handleDeleteEntry(
           type: "button",
           text: {
             type: "plain_text",
-            text: "🗑️ 削除実行",
+            text: BUTTONS.DELETE_CONFIRM,
             emoji: true,
           },
           action_id: "confirm_delete",
@@ -243,7 +243,7 @@ export async function handleDeleteEntry(
           type: "button",
           text: {
             type: "plain_text",
-            text: "❌ キャンセル",
+            text: BUTTONS.CANCEL,
             emoji: true,
           },
           action_id: "cancel_delete",
