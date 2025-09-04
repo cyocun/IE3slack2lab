@@ -14,7 +14,7 @@ import {
   uploadToGitHub,
   getCurrentJsonData,
   updateJsonOnGitHub,
-  deleteFileFromGitHub,
+  deleteImageAndUpdateJson,
 } from "../utils/github";
 import {
   storeThreadData,
@@ -373,7 +373,6 @@ export async function completeUpload(
                 text: "🗑️ 削除",
                 emoji: true,
               },
-              style: "danger",
               action_id: "delete_entry",
               value: newId.toString(),
             },
@@ -543,7 +542,7 @@ async function handleEditInput(
   await updateJsonOnGitHub(
     env,
     updatedData,
-    `Update lab entry ID: ${flowData.entryId}`,
+    `✏️ lab: Update lab entry ID: ${flowData.entryId}`,
   );
 
   // フロー状態をリセット
@@ -619,7 +618,6 @@ export async function handleDeleteEntry(
             text: "🗑️ 削除実行",
             emoji: true,
           },
-          style: "danger",
           action_id: "confirm_delete",
           value: flowData.entryId.toString(),
         },
@@ -665,7 +663,10 @@ export async function confirmDelete(
     // 削除前に画像パスを取得
     const imagePath = getImagePathByEntryId(currentData, flowData.entryId);
 
-    // 画像ファイルを削除（存在する場合）
+    // JSONからエントリを削除
+    const updatedData = deleteEntryById(currentData, flowData.entryId);
+
+    // 画像ファイル削除とJSON更新を1つのコミットで実行
     if (imagePath) {
       // imagePathは既に/で始まる完全パスなので、先頭の/を除去してからIMAGE_PATHを除去
       const relativePath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
@@ -673,20 +674,21 @@ export async function confirmDelete(
         ? relativePath.substring(env.IMAGE_PATH.length)
         : relativePath;
       const fullImagePath = `${env.IMAGE_PATH}${pathWithoutPrefix}`;
-      await deleteFileFromGitHub(
+      
+      await deleteImageAndUpdateJson(
         env,
         fullImagePath,
-        `Delete image for lab entry ID: ${flowData.entryId}`,
+        updatedData,
+        `🗑️ lab: Delete lab entry ID: ${flowData.entryId}`,
+      );
+    } else {
+      // 画像がない場合はJSONのみ更新
+      await updateJsonOnGitHub(
+        env,
+        updatedData,
+        `🗑️ lab: Delete lab entry ID: ${flowData.entryId}`,
       );
     }
-
-    // JSONからエントリを削除
-    const updatedData = deleteEntryById(currentData, flowData.entryId);
-    await updateJsonOnGitHub(
-      env,
-      updatedData,
-      `Delete lab entry ID: ${flowData.entryId}`,
-    );
 
     await deleteThreadData(env, threadTs);
 

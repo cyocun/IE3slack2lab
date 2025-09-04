@@ -97,7 +97,6 @@ export const BLOCK_TEMPLATES = {
             type: "plain_text",
             text: BUTTONS.TODAY,
           },
-          style: "primary",
           action_id: "today_date",
         },
         {
@@ -106,7 +105,6 @@ export const BLOCK_TEMPLATES = {
             type: "plain_text",
             text: BUTTONS.CANCEL_UPLOAD,
           },
-          style: "danger",
           action_id: "cancel_upload",
         },
       ],
@@ -139,7 +137,7 @@ export const BLOCK_TEMPLATES = {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `日付: ${date} ✅\nタイトル: ${title || "なし"} ✅\n\n${MESSAGES.PROMPTS.LINK_INPUT}`,
+        text: MESSAGES.PROMPTS.LINK_INPUT,
       },
     },
     {
@@ -151,7 +149,6 @@ export const BLOCK_TEMPLATES = {
             type: "plain_text",
             text: BUTTONS.POST_NOW,
           },
-          style: "primary",
           action_id: "post_now",
         },
       ],

@@ -156,7 +156,7 @@ export async function uploadToGitHub(
       method: "POST",
       headers: jsonHeaders,
       body: JSON.stringify({
-        message: `Add lab image: ${fileName}`,
+        message: `🧪 lab: Add lab image: ${fileName}`,
         tree: newTreeData.sha,
         parents: [currentCommitSha],
       }),
@@ -522,6 +522,175 @@ export async function deleteFileFromGitHub(
     console.error("GitHub API error (delete file):", deleteResp.status, errorText);
     throw new Error(
       `GitHub API error: ${deleteResp.status} - ${errorText.substring(0, 100)}`,
+    );
+  }
+}
+
+/**
+ * 画像ファイル削除とJSON更新を1つのコミットで実行
+ * @param env - 環境変数
+ * @param imagePath - 削除する画像ファイルのパス
+ * @param jsonData - 更新後のJSONメタデータ配列
+ * @param commitMessage - コミットメッセージ
+ */
+export async function deleteImageAndUpdateJson(
+  env: Bindings,
+  imagePath: string,
+  jsonData: LabEntry[],
+  commitMessage: string,
+): Promise<void> {
+  const { GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH, JSON_PATH } = env;
+  const authHeaders = {
+    Authorization: `token ${GITHUB_TOKEN}`,
+    "User-Agent": "Slack-to-GitHub-Worker",
+  };
+  const jsonHeaders = { ...authHeaders, "Content-Type": "application/json" };
+
+  // 現在のコミットSHAを取得
+  const branchResp = await fetch(
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`,
+    { headers: authHeaders },
+  );
+
+  if (!branchResp.ok) {
+    const errorText = await branchResp.text();
+    console.error("GitHub API error (branch):", branchResp.status, errorText);
+    throw new Error(
+      `GitHub API error: ${branchResp.status} - ${errorText.substring(0, 100)}`,
+    );
+  }
+
+  const branchData = (await branchResp.json()) as any;
+  const currentCommitSha = branchData.object.sha;
+
+  // 現在のツリーSHAを取得
+  const commitResp = await fetch(
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/commits/${currentCommitSha}`,
+    { headers: authHeaders },
+  );
+
+  if (!commitResp.ok) {
+    const errorText = await commitResp.text();
+    console.error("GitHub API error (commit):", commitResp.status, errorText);
+    throw new Error(
+      `GitHub API error: ${commitResp.status} - ${errorText.substring(0, 100)}`,
+    );
+  }
+
+  const commitData = (await commitResp.json()) as any;
+  const currentTreeSha = commitData.tree.sha;
+
+  // 現在のツリー情報を取得
+  const treeResp = await fetch(
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/trees/${currentTreeSha}?recursive=1`,
+    { headers: authHeaders },
+  );
+
+  if (!treeResp.ok) {
+    const errorText = await treeResp.text();
+    console.error("GitHub API error (tree):", treeResp.status, errorText);
+    throw new Error(
+      `GitHub API error: ${treeResp.status} - ${errorText.substring(0, 100)}`,
+    );
+  }
+
+  const treeData = (await treeResp.json()) as any;
+
+  // JSONブロブを作成
+  const jsonBlob = await fetch(
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/blobs`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        content: utf8ToBase64(JSON.stringify(jsonData, null, 2)),
+        encoding: "base64",
+      }),
+    },
+  );
+
+  if (!jsonBlob.ok) {
+    const errorText = await jsonBlob.text();
+    console.error("GitHub API error (json blob):", jsonBlob.status, errorText);
+    throw new Error(
+      `GitHub API error: ${jsonBlob.status} - ${errorText.substring(0, 100)}`,
+    );
+  }
+
+  const jsonBlobData = (await jsonBlob.json()) as any;
+
+  // 新しいツリーを作成（画像ファイルを除外し、JSONを更新）
+  const newTreeItems = treeData.tree
+    .filter((item: any) => item.path !== imagePath) // 画像ファイルを除外
+    .map((item: any) => ({
+      path: item.path,
+      mode: item.mode,
+      type: item.type,
+      sha: item.path === JSON_PATH ? jsonBlobData.sha : item.sha, // JSONファイルは新しいSHAに更新
+    }));
+
+  const newTree = await fetch(
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/trees`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        tree: newTreeItems,
+      }),
+    },
+  );
+
+  if (!newTree.ok) {
+    const errorText = await newTree.text();
+    console.error("GitHub API error (new tree):", newTree.status, errorText);
+    throw new Error(
+      `GitHub API error: ${newTree.status} - ${errorText.substring(0, 100)}`,
+    );
+  }
+
+  const newTreeData = (await newTree.json()) as any;
+
+  // 新しいコミットを作成
+  const newCommit = await fetch(
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/commits`,
+    {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        message: commitMessage,
+        tree: newTreeData.sha,
+        parents: [currentCommitSha],
+      }),
+    },
+  );
+
+  if (!newCommit.ok) {
+    const errorText = await newCommit.text();
+    console.error("GitHub API error (new commit):", newCommit.status, errorText);
+    throw new Error(
+      `GitHub API error: ${newCommit.status} - ${errorText.substring(0, 100)}`,
+    );
+  }
+
+  const newCommitData = (await newCommit.json()) as any;
+
+  // ブランチを更新
+  const updateResp = await fetch(
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/refs/heads/${GITHUB_BRANCH}`,
+    {
+      method: "PATCH",
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        sha: newCommitData.sha,
+      }),
+    },
+  );
+
+  if (!updateResp.ok) {
+    const errorText = await updateResp.text();
+    console.error("GitHub API error (update branch):", updateResp.status, errorText);
+    throw new Error(
+      `GitHub API error: ${updateResp.status} - ${errorText.substring(0, 100)}`,
     );
   }
 }
