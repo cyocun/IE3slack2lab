@@ -3,9 +3,6 @@
 Slackから投稿された画像をGitHubリポジトリにアップロードし、メタデータをJSONで管理するCloudflare Workerアプリケーション（TypeScript実装）。
 
 
-https://api.slack.com/apps/A09DDERQ746/event-subscriptions
-
-
 ## 機能
 
 - 📤 **インタラクティブ画像アップロード**: Slackで画像投稿後、ステップバイステップでメタデータ入力
@@ -14,6 +11,19 @@ https://api.slack.com/apps/A09DDERQ746/event-subscriptions
 - 🗑️ **安全な削除**: 確認ダイアログ付きで画像ファイルとメタデータを完全削除
 - 🎯 **スキップ機能**: タイトルとリンクは任意入力（スキップボタンで省略可能）
 - 🔒 **TypeScript型安全性**: 完全な型定義とコンパイル時エラー検出
+
+## 勘所・重要ポイント（今回）
+
+- 1コミット原則: 画像とJSON更新をGit Trees APIで同一コミットに集約（アップロード・削除の双方）。
+- パス変換の厳密運用: JSONにはサイト公開パス（例: `/images/lab/YYYY/MM/file.webp`）を保存し、GitHub操作ではリポジトリ内パス（例: `public/images/lab/YYYY/MM/file.webp`）を使用。`src/utils/paths.ts` の `toSiteImagePath`/`toRepoImagePath` を必ず利用。
+- URL生成の一元化: すべてのGitHub API呼び出しは `src/github/urlBuilder.ts` 経由で生成し、ブランチ指定の漏れを防止。
+- 状態管理: スレッド単位のフロー状態をKVで管理（TTLを状態で出し分け）。`KV_CONFIG` を参照。
+- 入力仕様: 日付は `YYYYMMDD`/`MMDD` を受付→ `YYYY/MM/DD` に整形。リンクはSlackハイパーリンク形式 `<url|text>` に対応し、`no` でスキップ。
+- 画像最適化: Photon WASMでリサイズ（幅最大 `800px`）→ WebP変換。ファイル名はタイムスタンプ + サニタイズ済み名に変更。
+- エラーハンドリング: 失敗はSlackに色付きメッセージで通知。GitHub成功後のSlack失敗時はフォールバック文面で通知。
+- パフォーマンス注意: Slackの3秒制約を考慮。現状はインライン処理が多く、重い処理は `waitUntil()` への移行余地あり（要検討）。
+- 定数運用: ユーザーに見える文字列のみ `constants.ts` に集約。技術的な制御文字列は可読性重視で各所に記述（詳細は `CLAUDE.md`）。
+- 設定の真実源: ブランチ・パス等は `wrangler.toml` を正とし、ドキュメントの値もこれに揃える。
 
 ## セットアップ
 
@@ -53,9 +63,9 @@ npm install
 # TypeScriptビルド
 npm run build
 
-# KVネームスペース作成
-wrangler kv namespace create "slack2postlab-threads"
-wrangler kv namespace create "slack2postlab-threads" --preview
+# KVネームスペース作成（初回のみ。発行IDを wrangler.toml に反映）
+wrangler kv namespace create slack2postlab_threads
+wrangler kv namespace create slack2postlab_threads --preview
 
 # シークレット設定
 wrangler secret put SLACK_BOT_TOKEN
@@ -88,6 +98,24 @@ npm run dev
 
 # フォーマット
 npm run format
+npm run workers-log
+
+```
+
+## 環境値（wrangler.toml）
+
+本番の設定は `wrangler.toml` を真実源とします。例:
+
+```toml
+[vars]
+IMAGE_PATH = "public/images/lab/"
+JSON_PATH = "app/data/lab.json"
+GITHUB_BRANCH = "main"
+
+[[kv_namespaces]]
+binding = "slack2postlab_threads"
+id = "<your-kv-id>"
+preview_id = "<your-kv-preview-id>"
 ```
 
 ## プロジェクト構造
@@ -107,15 +135,15 @@ src/
 │   ├── flowValidation.ts # 入力バリデーション
 │   └── uploadProcessor.ts # アップロード処理ロジック
 ├── github/
-│   ├── dataOperations.ts # JSONデータ操作
-│   ├── uploadOperations.ts # ファイルアップロード操作
-│   ├── deleteOperations.ts # ファイル削除操作
-│   ├── githubApi.ts      # GitHub APIヘルパー
-│   └── urlBuilder.ts     # GitHub URL構築
+│   ├── dataOperations.ts   # JSONデータ操作（Base64/Tree操作含む）
+│   ├── uploadOperations.ts # 画像+JSONを単一コミットでアップロード
+│   ├── deleteOperations.ts # 画像削除+JSON更新を単一コミットで実行
+│   ├── githubApi.ts        # GitHub APIヘルパー（refs/commits/blobs/trees）
+│   └── urlBuilder.ts       # GitHub URL構築（branch/refs対応）
 ├── utils/
 │   ├── slack.ts          # Slack API関連ユーティリティ
 │   ├── kv.ts            # KVストレージ・データ操作ユーティリティ
-│   ├── imageOptimizer.ts # 画像処理（Photon WebAssembly）
+│   ├── imageOptimizer.ts # 画像処理（Photon WebAssembly, WebP変換）
 │   └── messageFormatter.ts # メッセージフォーマットユーティリティ
 └── ui/
     └── slackBlocks.ts    # Slack Block Kitテンプレート
@@ -131,7 +159,7 @@ src/
   - Slack Events API（メッセージ処理）
   - Slack Interactive Components（ボタン処理）
   - GitHub Contents API（ファイル管理）
-  - GitHub Tree API（一括コミット）
+  - GitHub Trees/Refs/Commits API（単一コミット連携）
 
 ## 開発の流儀・守るべきこと
 
@@ -170,7 +198,7 @@ src/
 - **ログ監視**: `wrangler tail` でリアルタイム監視
 - **エラー処理**: try-catch漏れがないか必ず確認
 
-詳細な開発規約は [`CLAUDE.md`](./CLAUDE.md) を参照してください。
+詳細な開発規約は `CLAUDE.md`、仕様は `SPECIFICATION.md`、AI向けの運用は `PROMPTS.md` を参照してください。
 
 ## ライセンス
 

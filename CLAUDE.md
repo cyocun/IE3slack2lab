@@ -63,6 +63,7 @@ src/
 - **Runtime**: Cloudflare Workers
 - **Language**: TypeScript
 - **APIs**: Slack Events API, GitHub Contents API
+  - Plus: GitHub Trees/Commits/Refs (single-commit operations)
 
 ## Environment Setup
 
@@ -193,3 +194,24 @@ GITHUB_BRANCH = "develop"
 
 - See `SPECIFICATION.md` for detailed technical specifications
 - See `README.md` for setup and usage instructions
+
+## Key Decisions & Gotchas (for AI)
+
+- Single-commit rule: Upload (image + JSON) and delete (image removal + JSON update) both use Trees/Commits/Refs to keep atomicity.
+- Path conversion: Always use `utils/paths.ts` to convert between repo path (`public/images/lab/...`) and site path (`/images/lab/...`). JSON stores site paths.
+- URL builder required: All GitHub API URLs must come from `src/github/urlBuilder.ts` to avoid ref/branch mistakes.
+- KV state TTLs: Use `KV_CONFIG` to choose TTL per state (thread vs editing vs completed).
+- Inputs: Dates accept `YYYYMMDD` or `MMDD`; links accept Slack `<url|text>` form and `no` for skipping.
+- Image processing: Resize to max width 800, convert to WebP; file name uses timestamp + sanitized base name.
+- Error surfaces: Prefer Slack colored messages; if Slack send fails after a successful GitHub op, emit fallback.
+- Performance: Slack has a ~3s expectation. Current code often runs inline; consider `waitUntil()` for heavy steps when refactoring.
+- Source of truth: Treat `wrangler.toml` values (branch, paths, KV binding) as canonical and keep docs aligned.
+
+## Consistency Checklist
+
+- Branch in requests matches `env.GITHUB_BRANCH`.
+- All GitHub calls use `createGitHubUrlBuilder(env)`.
+- JSON contains site paths starting with `/images/...`.
+- Constants: user-facing text only in `constants.ts`; keep technical identifiers inline.
+- Slack link handling uses `extractUrlFromSlackFormat` and `isValidUrl`.
+- Date validation uses `formatDateInput` and regex check in `flowValidation.ts`.

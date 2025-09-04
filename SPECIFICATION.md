@@ -2,21 +2,22 @@
 
 ## 概要
 
-SlackからGitHubリポジトリへの画像アップロードとメタデータ管理を行うCloudflare Workers アプリケーション。Slackに投稿された画像を自動的にGitHubにアップロードし、JSON形式でメタデータを管理する。
+SlackからGitHubリポジトリへの画像アップロードとメタデータ管理を行うCloudflare Workersアプリケーション。Slackに投稿された画像を自動でGitHubに保存し、JSON形式のメタデータを更新する。
 
 ## システム構成
 
 ### プラットフォーム
-- **実行環境**: Cloudflare Workers
-- **言語**: TypeScript
-- **パッケージマネージャー**: npm
-- **Webフレームワーク**: Hono
+- 実行環境: Cloudflare Workers
+- 言語: TypeScript
+- パッケージマネージャー: npm
+- Webフレームワーク: Hono
 
 ### 主要依存関係
 ```json
 {
   "dependencies": {
-    "hono": "^4.9.6"
+    "hono": "^4.9.6",
+    "@cf-wasm/photon": "^0.1.31"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240117.0",
@@ -34,138 +35,107 @@ SlackからGitHubリポジトリへの画像アップロードとメタデータ
 ### 1. Slackメッセージ処理
 
 #### 1.1 基本投稿処理
-- **エンドポイント**: `/slack/events` (メッセージ処理)
-- **エンドポイント**: `/slack/interactive` (ボタンインタラクション)
-- **メソッド**: POST
-- **認証**: Slack署名検証
+- エンドポイント: `/slack/events`（メッセージ処理）
+- エンドポイント: `/slack/interactive`（ボタン処理）
+- メソッド: POST
+- 認証: Slack署名検証
 
 #### 1.2 インタラクティブフロー
-画像アップロード時、Slackでインタラクティブなフローが開始されます：
+1. 画像付きメッセージをSlackに投稿（最初の画像を処理）
+2. 日付入力（必須）→ `YYYY/MM/DD` に整形
+3. タイトル入力（任意、`no` でスキップ）
+4. リンク入力（任意、`no` でスキップ・Slackハイパーリンク `<url|text>` 対応）
+5. GitHubへ画像+JSONを単一コミットでアップロード
+6. 完了後に編集・削除ボタンを提示
 
-1. **初期画像アップロード**: 画像ファイル付きメッセージをSlackに投稿
-2. **日付入力要求**: 「📅 日付を入力してください (YYYYMMDD)」
-3. **タイトル入力要求**: 「📝 タイトルを入力してください (スキップ可能)」
-4. **リンク入力要求**: 「🔗 リンクを入力してください (スキップ可能)」
-5. **確認・アップロード**: すべての情報を確認してGitHubへアップロード
-6. **編集・削除**: アップロード後に編集・削除ボタンが利用可能
-
-#### 1.3 対応入力形式
-**日付入力**:
-- `YYYYMMDD`: 20241225 → 2024/12/25
-- `MMDD`: 1225 → 2025/12/25 (現在の西暦を自動設定)
-- スキップ不可（必須入力）
-
-**タイトル・リンク入力**:
-- 任意のテキスト入力
-- 「スキップ」ボタンでスキップ可能
+#### 1.3 入力仕様
+- 日付: `YYYYMMDD` / `MMDD` を受理し、`YYYY/MM/DD` に整形（基本妥当性チェックあり）
+- タイトル: 任意。`no` で空文字
+- リンク: 任意。`no` で空文字。Slackハイパーリンク形式対応（`<url|text>` → `url` 抽出）
 
 #### 1.4 画像処理
-- **対応形式**: image/* MIMEタイプの画像ファイル
-- **処理方法**: 画像データをそのままGitHubにアップロード
-- **保存先**: `mock-dir/public/images/YYYY/MM/` 形式
-- **ファイル名**: `{timestamp}_{original_filename}` 形式
+- 対応: `image/*` MIME
+- 最適化: 幅800px上限でリサイズ（縦横比維持）+ WebP変換（Photon）
+- 保存先（リポジトリ）: `public/images/lab/YYYY/MM/`
+- 保存先（JSON/サイト）: `/images/lab/YYYY/MM/`
+- ファイル名: `{timestamp}_{sanitized_original_name}.webp`
 
-### 2. インタラクティブボタン機能
-
-#### 2.1 アップロード完了後のボタン
-- **✏️ 編集**: 日付・タイトル・リンクの個別編集
-- **🗑️ 削除**: エントリと画像ファイルの削除（確認ダイアログ付き）
-
-#### 2.2 編集機能
-各フィールドの編集が可能：
-- **日付編集**: 既存の日付を新しい日付に変更
-- **タイトル編集**: タイトルの追加・変更・削除
-- **リンク編集**: リンクの追加・変更・削除
-
-#### 2.3 削除機能
-- 削除確認ダイアログ表示
-- **🗑️ 削除実行**: JSONエントリと画像ファイルの両方を削除
-- **❌ キャンセル**: 削除をキャンセル
+### 2. ボタン機能
+- 編集（✏️）: 日付・タイトル・リンクの個別編集
+- 削除（🗑️）: 画像ファイルとJSONを同時更新（確認ダイアログあり）
 
 ### 3. GitHub統合
 
-#### 3.1 ファイルアップロード
-- **API**: GitHub Contents API & Tree API
-- **同時アップロード**: 画像ファイル + JSON メタデータを1コミットで処理
-- **ブランチ**: `develop` （設定可能）
+#### 3.1 APIとブランチ
+- 使用API: Blobs / Trees / Commits / Refs（Contentsは読み取り）
+- 1コミット原則: 画像とJSONを単一コミットで反映
+- ブランチ: `main`（`wrangler.toml` の `GITHUB_BRANCH` で指定）
 
 #### 3.2 ファイル構成
 ```
-mock-dir/
-├── public/
-│   └── images/
-│       └── YYYY/
-│           └── MM/
-│               └── [timestamp_filename]
-└── app/
-    └── data/
-        └── lab.json
+public/
+└── images/
+    └── lab/
+        └── YYYY/
+            └── MM/
+                └── [timestamp]_[sanitized].webp
+
+app/
+└── data/
+    └── lab.json
 ```
 
 ### 4. データ構造
 
-#### 4.1 JSONメタデータ形式
+#### 4.1 JSONメタデータ
 ```json
 {
   "id": 28,
-  "image": "/mock-dir/public/images/2025/09/1756924937876_20250702-2.jpg",
+  "image": "/images/lab/2025/09/1756924937876_20250702-2.webp",
   "title": "タイトル（optional）",
   "datetime": "2025-04-01",
   "link": "https://example.com（optional）"
 }
 ```
 
-注意: 現在の実装では、Slackメタデータ（アップロード日時、ユーザー情報、チャンネル情報等）の保存は含まれていません。
-
 #### 4.2 配列管理
-- 新しいアイテムは配列の先頭に追加
-- IDは自動インクリメント
-- 時系列降順で管理
+- 新規は配列先頭に追加
+- IDは最大値+1の採番
+- 降順で時系列を維持
 
-#### 4.3 スレッドデータ管理
-KVストレージを使用してスレッド状態を管理：
-```typescript
+#### 4.3 スレッド状態（KV）
+```ts
 interface FlowData {
-  flowState: FlowState; // "waiting_date" | "waiting_title" | "waiting_link" | "completed" | "editing"
+  flowState: "waiting_date" | "waiting_title" | "waiting_link" | "completed" | "editing";
   imageFile?: { url: string; name: string; mimetype: string };
   collectedData: { date?: string; title?: string; link?: string };
-  entryId?: number; // アップロード完了後に設定
-  editingField?: "date" | "title" | "link"; // 編集中フィールド
+  entryId?: number;
+  editingField?: "date" | "title" | "link";
 }
 ```
 
 ### 5. エラーハンドリングと検証
-
-#### 5.1 入力バリデーション
-- **画像ファイル**: 画像MIMEタイプ（`image/*`）の検証
-- **日付フォーマット**:
-  - 入力: `YYYYMMDD`（8桁）または `MMDD`（4桁）形式
-  - 出力: `YYYY/MM/DD` 形式に自動変換
-  - 検証: `YYYY/MM/DD` 形式の正規表現（`/^\d{4}\/\d{2}\/\d{2}$/`）
-- **ボットメッセージ**: `bot_id`の存在チェックでボット投稿を除外
-- **イベントタイプ**: `message`タイプのイベントのみ処理
-
-#### 5.2 エラー応答
-- **フォーマットエラー**: Slackスレッドに詳細なエラーメッセージを投稿
-- **処理エラー**: エラー詳細とスタックトレースをSlackに通知
-- **認証エラー**: 401 Unauthorizedを返却
+- 署名検証: Slack署名とタイムスタンプ検証
+- 入力検証: 日付・リンクを検証（Slackリンク形式対応）
+- エラー通知: Slackに色付きメッセージで詳細通知 + コンソールログ
+- 失敗フォールバック: Slack送信失敗時は簡易メッセージ送信
 
 ## 環境設定
 
-### 環境変数 (wrangler.toml)
+### wrangler.toml（例）
 ```toml
 [vars]
-IMAGE_PATH = "mock-dir/public/images/"
-JSON_PATH = "mock-dir/app/data/lab.json"
-GITHUB_BRANCH = "develop"
+IMAGE_PATH = "public/images/lab/"
+JSON_PATH = "app/data/lab.json"
+GITHUB_BRANCH = "main"
 
 [[kv_namespaces]]
-binding = "SLACK2POSTLAB_THREADS"
+binding = "slack2postlab_threads"
 id = "your-kv-namespace-id"
 preview_id = "your-preview-kv-namespace-id"
 ```
 
-### シークレット設定
+### Secrets
 ```bash
 wrangler secret put SLACK_BOT_TOKEN
 wrangler secret put SLACK_SIGNING_SECRET
@@ -175,145 +145,84 @@ wrangler secret put GITHUB_REPO
 ```
 
 ## コマンド
-
-### 開発・デプロイ
 ```bash
 npm run dev          # ローカル開発
 npm run build        # TypeScriptビルド
-npm run deploy       # Cloudflareにデプロイ
+npm run deploy       # デプロイ
 npm run typecheck    # 型チェック
-npm run format       # コード整形
-npm run test         # テスト実行
+npm run format       # 整形
+npm run workers-log  # ライブログ
 ```
 
 ## アーキテクチャ
 
-### ファイル構成
 ```
 src/
-├── index.ts              # メインエントリポイント（Honoアプリケーション）
+├── index.ts              # Honoアプリ（署名検証/ルーティング）
 ├── types.ts              # 型定義
-├── constants.ts          # 定数・メッセージテンプレート（一元管理）
+├── constants.ts          # 定数/メッセージ
 ├── handlers/
-│   ├── flowHandler.ts    # インタラクティブフロー処理
-│   └── buttonHandler.ts  # ボタンインタラクション処理
+│   ├── flowHandler.ts    # フロー開始/進行
+│   └── buttonHandler.ts  # ボタン処理
 ├── flow/
-│   ├── editHandlers.ts   # 編集・削除操作
-│   ├── flowStates.ts     # フロー状態管理
-│   ├── flowMessages.ts   # メッセージフォーマット
-│   ├── flowValidation.ts # 入力バリデーション
-│   └── uploadProcessor.ts # アップロード処理ロジック
+│   ├── flowInputHandlers.ts  # 日付/タイトル/リンク処理
+│   ├── editHandlers.ts       # 編集/削除
+│   ├── flowStates.ts         # 状態管理
+│   ├── flowMessages.ts       # メッセージ構築
+│   ├── flowValidation.ts     # 入力検証
+│   └── uploadProcessor.ts    # 画像最適化+アップロード
 ├── github/
-│   ├── index.ts          # GitHub exports
-│   ├── dataOperations.ts # JSONデータ操作
-│   ├── uploadOperations.ts # ファイルアップロード操作
-│   ├── deleteOperations.ts # ファイル削除操作
-│   ├── githubApi.ts      # GitHub APIヘルパー
-│   ├── urlBuilder.ts     # GitHub URL構築
-│   └── types.ts          # GitHub特有の型定義
+│   ├── dataOperations.ts     # JSON取得/更新（Contents/Blobs）
+│   ├── uploadOperations.ts   # Blobs → Trees → Commits → Refs
+│   ├── deleteOperations.ts   # 画像削除+JSON更新を単一コミット
+│   ├── githubApi.ts          # 共通ヘッダー/エラー/参照取得
+│   └── urlBuilder.ts         # URL生成（owner/repo/branch）
 ├── utils/
-│   ├── slack.ts          # Slack API関連ユーティリティ
-│   ├── kv.ts            # KVストレージ・データ操作ユーティリティ
-│   ├── imageOptimizer.ts # 画像処理（Photon WebAssembly）
-│   ├── messageFormatter.ts # メッセージフォーマットユーティリティ
-│   └── response.ts       # HTTP レスポンスヘルパー
+│   ├── slack.ts              # 署名検証/投稿/リンク抽出
+│   ├── kv.ts                 # KV CRUD/配列ヘルパー
+│   ├── imageOptimizer.ts     # Photon最適化
+│   ├── messageFormatter.ts   # 文面の整形
+│   ├── paths.ts              # サイト⇔レポ間のパス変換
+│   └── response.ts           # 共通レスポンス
 └── ui/
-    └── slackBlocks.ts    # Slack Block Kit テンプレート
+    └── slackBlocks.ts        # Block Kitテンプレート
 ```
 
-### 処理フロー
-
-#### メインフロー
-1. **Slack Webhook受信**: `/slack/events` エンドポイントでPOSTリクエスト受信
-2. **署名検証**: Slack署名とタイムスタンプで認証検証
-3. **URLVerification**: 初回設定時のチャレンジレスポンス処理
-4. **イベント種別判定**:
-   - 通常メッセージ（画像付き）→ インタラクティブフロー開始
-   - スレッドメッセージ → フロー継続処理
-
-#### インタラクティブフロー
-1. **画像アップロード検出**: 画像ファイル付きメッセージを受信
-2. **スレッド開始**: KVに初期フローデータを保存
-3. **日付入力要求**: "waiting_date" 状態でユーザーに日付入力を求める
-4. **日付バリデーション**: YYYY/MM/DD形式の検証
-5. **タイトル入力要求**: "waiting_title" 状態でタイトル入力を求める（スキップ可能）
-6. **リンク入力要求**: "waiting_link" 状態でリンク入力を求める（スキップ可能）
-7. **GitHub同時アップロード**: 画像とJSONを1コミットでアップロード
-8. **完了状態**: "completed" 状態で編集・削除ボタンを表示
-
-#### ボタンインタラクション
-1. **ボタンイベント受信**: `/slack/interactive` エンドポイントで処理
-2. **アクション種別判定**: edit_date, edit_title, edit_link, delete_entry など
-3. **状態更新**: フロー状態を "editing" に変更
-4. **入力処理**: ユーザー入力に応じてGitHubデータを更新
-5. **完了**: "completed" 状態に戻る
+## 処理フロー（要点）
+1. `/slack/events` で受信 → 署名検証
+2. 画像検出 → KVへ初期状態保存 → 日付入力を促すBlockを送信
+3. 日付/タイトル/リンクを段階処理（検証→保存）
+4. 画像最適化 → GitHubへ画像+JSONを単一コミット
+5. 完了Block（編集/削除ボタン付き）を送信
+6. 編集/削除は該当部分のみ更新しつつ、整合性を維持
 
 ## セキュリティ
+- Slack署名検証（タイムスタンプ鮮度もチェック）
+- GitHubトークンはWrangler Secretsで管理
+- ボットメッセージ除外
 
-- Slack署名検証による認証
-- GitHub Personal Access Token認証
-- 環境変数でのシークレット管理
-- ボットメッセージの除外処理
-
-## パフォーマンス制約と対策
-
-### Slackタイムアウト制約
-- **3秒ルール**: Slackへのレスポンスは3秒以内必須
-- **対策**: `waitUntil()` でバックグラウンド処理実行
-- **ユーザー体験**: 即座に処理中メッセージ → 完了時に詳細メッセージ
-
-### 重い処理の非同期化
-- **アップロード処理**: 画像最適化 + GitHubアップロード
-- **削除処理**: GitHub API呼び出し + JSON更新
-- **実装**: ExecutionContextのwaitUntil()でバックグラウンド実行
-
-### 画像処理最適化
-- **リサイズ**: 1200x1200px上限でリサイズ
-- **フォーマット**: WebP形式に変換で圧縮率向上
-- **メモリ管理**: Photon WebAssemblyのリソース解放
-
-### GitHub API効率化
-- **ブランチ指定**: 全API呼び出しでブランチを明示的に指定
-- **バッチコミット**: Tree APIで画像+JSON同時コミット
-- **エラーハンドリング**: 詳細なエラー情報でデバッグ効率化
+## パフォーマンスと制約
+- Slack 3秒ルール: 3秒以内の応答が望ましい
+- 対策候補: 重い処理は `waitUntil()` でバックグラウンド化（現状はインラインが多く改善余地あり）
+- Cloudflare CPU制限（~30秒）に留意
 
 ## 制限事項
-
-- **単一画像処理**: 1回の投稿につき最初の画像のみ処理対象
-- **画像形式**: `image/*` MIMEタイプの画像ファイルのみ対応
-- **実行時間制限**: Cloudflare Workersの実行時間制限（CPU時間30秒）内での処理
-- **KVストレージ**: スレッド状態管理にCloudflare KVを使用（結果整合性）
-- **メタデータ拡張なし**: Slackユーザー情報やタイムスタンプの保存なし
-- **同時編集制限**: 同じエントリを複数人が同時編集する場合の競合状態は未対応
+- 1投稿につき最初の画像のみ対象
+- 競合編集（複数名同時）は未対応
+- Slackユーザー/チャンネル等のメタデータはJSON保存対象外
 
 ## API仕様
-
-### エンドポイント
-
-#### `GET /`
-- **用途**: ヘルスチェック
-- **レスポンス**: `OK` (200)
-
-#### `POST /slack/events`
-- **用途**: Slack Events API Webhook（メッセージ処理）
-- **認証**: Slack署名検証
-- **Content-Type**: `application/json`
-- **レスポンス**:
-  - 成功: `OK` (200)
-  - 認証失敗: `Unauthorized` (401)
-  - JSONパースエラー: `Invalid JSON` (400)
-
-#### `POST /slack/interactive`
-- **用途**: Slack Interactive Components（ボタン処理）
-- **認証**: Slack署名検証
-- **Content-Type**: `application/x-www-form-urlencoded`
-- **レスポンス**:
-  - 成功: `OK` (200)
-  - 認証失敗: `Unauthorized` (401)
+- `GET /` ヘルスチェック → `OK`
+- `POST /slack/events` → メイン処理
+- `POST /slack/interactive` → ボタン処理
 
 ## ログ・モニタリング
+- `wrangler tail`（`npm run workers-log`）でリアルタイム監視
+- 重要エラーはSlack通知（色付き）+ Console出力
 
-- **Cloudflare Workers**: ログ有効化（`observability.logs.enabled = true`）
-- **ローカル監視**: `npx wrangler tail --format pretty`
-- **エラー通知**: Slackスレッドに詳細エラーメッセージ自動投稿
-- **コンソールログ**: 処理エラーの詳細をWorkersコンソールに出力
+## よくある落とし穴
+- ブランチ不整合: `wrangler.toml` の `GITHUB_BRANCH` を正とする
+- パス変換忘れ: JSONはサイトパス、GitHub操作はリポ内パス（`utils/paths.ts`）
+- Slackリンク形式: `<url|text>` をそのまま使わず抽出関数を通す
+- ファイル名サニタイズ: 短/非英数名はハッシュ化によりリネームされる
+
