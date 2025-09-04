@@ -14,6 +14,7 @@ import {
   uploadToGitHub,
   getCurrentJsonData,
   updateJsonOnGitHub,
+  deleteFileFromGitHub,
 } from "../utils/github";
 import {
   storeThreadData,
@@ -21,6 +22,7 @@ import {
   deleteThreadData,
   updateEntryById,
   deleteEntryById,
+  getImagePathByEntryId,
 } from "../utils/kv";
 import {
   MESSAGES,
@@ -708,6 +710,21 @@ export async function confirmDelete(
 
   try {
     const currentData = await getCurrentJsonData(env);
+    
+    // 削除前に画像パスを取得
+    const imagePath = getImagePathByEntryId(currentData, flowData.entryId);
+    
+    // 画像ファイルを削除（存在する場合）
+    if (imagePath) {
+      const fullImagePath = `${env.IMAGE_PATH}${imagePath}`;
+      await deleteFileFromGitHub(
+        env,
+        fullImagePath,
+        `Delete image for lab entry ID: ${flowData.entryId}`,
+      );
+    }
+    
+    // JSONからエントリを削除
     const updatedData = deleteEntryById(currentData, flowData.entryId);
     await updateJsonOnGitHub(
       env,

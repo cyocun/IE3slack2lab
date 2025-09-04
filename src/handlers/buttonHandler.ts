@@ -41,6 +41,10 @@ export async function handleButtonInteraction(
 
     // アクションIDに基づく処理
     switch (actionId) {
+      case "today_date":
+        await handleTodayDate(env, flowData, threadTs);
+        break;
+
       case "cancel_upload":
         await handleCancelUpload(env, flowData, threadTs);
         break;
@@ -234,5 +238,33 @@ async function handleCancelDelete(
     threadTs,
     MESSAGES.SUCCESS.CANCELLED,
     'warning',
+  );
+}
+
+/**
+ * TODAY!ボタン処理 - 今日の日付を自動設定
+ */
+async function handleTodayDate(
+  env: Bindings,
+  flowData: FlowData,
+  threadTs: string,
+): Promise<void> {
+  // 今日の日付をYYYY/MM/DD形式で取得
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  const todayDate = `${year}/${month}/${day}`;
+
+  // フローデータを更新
+  flowData.collectedData = { ...flowData.collectedData, date: todayDate };
+  flowData.flowState = FLOW_STATE.WAITING_TITLE;
+  await storeThreadData(env, threadTs, flowData);
+
+  await sendSlackMessage(
+    env.SLACK_BOT_TOKEN,
+    flowData.channel,
+    threadTs,
+    `${MESSAGES.FLOW_STATUS.DATE_CONFIRMED.replace("{date}", todayDate)}\n\n${MESSAGES.PROMPTS.TITLE_INPUT}`,
   );
 }

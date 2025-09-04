@@ -464,3 +464,64 @@ export async function updateJsonOnGitHub(
     );
   }
 }
+
+/**
+ * GitHubからファイルを削除
+ * @param env - 環境変数
+ * @param filePath - 削除するファイルのパス
+ * @param commitMessage - コミットメッセージ
+ */
+export async function deleteFileFromGitHub(
+  env: Bindings,
+  filePath: string,
+  commitMessage: string,
+): Promise<void> {
+  const { GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH } = env;
+  const authHeaders = {
+    Authorization: `token ${GITHUB_TOKEN}`,
+    "User-Agent": "Slack-to-GitHub-Worker",
+  };
+  const jsonHeaders = { ...authHeaders, "Content-Type": "application/json" };
+
+  // 現在のファイル情報を取得（SHAが必要）
+  const fileResp = await fetch(
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}?ref=${GITHUB_BRANCH}`,
+    { headers: authHeaders },
+  );
+
+  if (!fileResp.ok) {
+    if (fileResp.status === 404) {
+      console.log(`File not found: ${filePath} - skipping deletion`);
+      return; // ファイルが存在しない場合はスキップ
+    }
+    const errorText = await fileResp.text();
+    console.error("GitHub API error (get file):", fileResp.status, errorText);
+    throw new Error(
+      `GitHub API error: ${fileResp.status} - ${errorText.substring(0, 100)}`,
+    );
+  }
+
+  const fileData = (await fileResp.json()) as any;
+  
+  // ファイルを削除
+  const deleteResp = await fetch(
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`,
+    {
+      method: "DELETE",
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        message: commitMessage,
+        sha: fileData.sha,
+        branch: GITHUB_BRANCH,
+      }),
+    },
+  );
+
+  if (!deleteResp.ok) {
+    const errorText = await deleteResp.text();
+    console.error("GitHub API error (delete file):", deleteResp.status, errorText);
+    throw new Error(
+      `GitHub API error: ${deleteResp.status} - ${errorText.substring(0, 100)}`,
+    );
+  }
+}

@@ -70,3 +70,17 @@ export function deleteEntryById(
   return entries.filter((entry) => entry.id !== entryId);
 }
 
+/**
+ * エントリIDから対応する画像ファイルパスを取得
+ * @param entries - Current lab entries array
+ * @param entryId - Entry ID to find
+ * @returns Image file path or null if not found
+ */
+export function getImagePathByEntryId(
+  entries: LabEntry[],
+  entryId: number,
+): string | null {
+  const entry = entries.find((e) => e.id === entryId);
+  return entry ? entry.image : null;
+}
+

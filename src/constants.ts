@@ -8,41 +8,41 @@ export const MESSAGES = {
     INTERNAL_SERVER_ERROR: "Internal Server Error",
     DATE_FORMAT: "Invalid date format",
     DATA_NOT_FOUND: "データがない🤔",
-    UPLOAD_ERROR: "❌ 画像の処理中にエラーが発生しました",
+    UPLOAD_ERROR: "❌ 画像の処理中にエラーが発生した",
     EDIT_INPUT_ERROR: "Edit input error occurred",
     MISSING_DATA: "データが足りない🤔",
     DELETE_ERROR: "削除エラー😱",
     UNKNOWN_ERROR: "原因不明",
   },
   SUCCESS: {
-    UPLOAD_COMPLETE: "🎉 画像のアップロードが完了しました！",
-    UPLOAD_PENDING_COMPLETE: "🎉 お待たせしました！アップロード完了です",
+    UPLOAD_COMPLETE: "🎉 画像のUPが完了した！",
+    UPLOAD_PENDING_COMPLETE: "🎉 お待た！UP完了",
     UPDATE_COMPLETE: "更新完了✨",
     DELETE_COMPLETE: "削除完了👋",
     DELETE_PENDING:
-      "🗑️ 了解しました！保留中の画像アップロードをキャンセルしました",
-    FIELD_UPDATED: "✅ {field}を更新しました",
+      "🗑️ 了解！キャンセルた！",
+    FIELD_UPDATED: "✅ {field}を更新した",
     CANCELLED: "キャンセル👌",
   },
   PROGRESS: {
-    UPLOAD_STARTING: "🔄 ちょっと待ってね！画像をアップロード中だよ...",
-    UPLOAD_PROCESSING: "📤 いい写真だね！GitHubにアップロード中...",
+    UPLOAD_STARTING: "🔄 ちょっと待ってね！画像をUP中だよ...",
+    UPLOAD_PROCESSING: "📤 GitHubにUP中...",
   },
   PROMPTS: {
-    DATE_INPUT: "📅 *いつの写真？*\nYYYY/MM/DD、YYYYMMDD、MMDD",
+    DATE_INPUT: "📅 *いつ？*\n`YYYY/MM/DD、YYYYMMDD、MMDD`",
     DATE_INVALID:
-      "😅「{input}」は認識できない\nYYYY/MM/DD、YYYYMMDD、MMDD で！",
+      "😅「{input}」は認識できない\n`YYYY/MM/DD、YYYYMMDD、MMDD` で！",
     TITLE_INPUT: "📝 *タイトルは？*\n「no」かスキップでなしにできるよ",
     LINK_INPUT: "🔗 *リンクは？*\n「no」か投稿ボタンでスキップ",
     LINK_INVALID:
-      "😅「{input}」は正しいURLじゃないよ！\nhttps://example.com の形式で入力するか、「no」でスキップしてね",
-    WHAT_TO_EDIT: "🔧 *何を修正しますか？*",
-    EDIT_DATE: "📅 新しい日付（YYYY/MM/DD、YYYYMMDD、MMDD）",
+      "😅「{input}」は正しいURLじゃないよ！\n`https://example.com` の形式で入力するか、「no」でスキップしてね",
+    WHAT_TO_EDIT: "🔧 *修正する？*",
+    EDIT_DATE: "📅 新しい日付 `YYYY/MM/DD、YYYYMMDD、MMDD`",
     EDIT_TITLE: "📝 新しいタイトル（「no」でなし）",
     EDIT_LINK: "🔗 新しいリンク（「no」でなし）",
-    DELETE_CONFIRM: "⚠️ *削除する？*\nID: {id}",
-    WHAT_FIELD_TO_FIX: "✏️ *どこを直す？*",
-    DATE_FORMAT_HELP: `📅 **いつの画像？** 🤔
+    DELETE_CONFIRM: "⚠️ *削除？*\nID: {id}",
+    WHAT_FIELD_TO_FIX: "✏️ *直す？*",
+    DATE_FORMAT_HELP: `📅 **いつ？** 🤔
 • \`date: 20241225\` (YYYYMMDD or MMDD)
 
 ✨ **Example** :
@@ -52,7 +52,7 @@ title: The new beginning
 link: https://ie3.jp
 \`\`\`
 
-😊 下のボタンから編集するか、このスレッドに投稿してもらえれば、すぐに画像をアップロードします！`,
+😊 下のボタンから編集するか、このスレッドに投稿してもらえれば、すぐに画像をUPします！`,
     DATE_FORMAT_ERROR: `📅 日付の形式がちょっと違うようです
 
 🔍 **受け取った値**: \`{receivedValue}\`
@@ -68,7 +68,7 @@ title: The new beginning
 link: https://ie3.jp
 \`\`\`
 
-🚀 下のボタンから編集するか、正しい形式で投稿していただければ、すぐに画像をアップロードします！`,
+🚀 下のボタンから編集するか、正しい形式で投稿していただければ、すぐに画像をUPします！`,
   },
   PRAISE: [
     "素敵な写真ですね！✨",
@@ -114,6 +114,7 @@ export const BUTTONS = {
   CANCEL_UPLOAD: "❌ 取り消し",
   SKIP: "スキップ",
   POST_NOW: "💾 投稿",
+  TODAY: "📅 TODAY!",
 } as const;
 
 export const UI_TEXT = {
@@ -137,6 +138,15 @@ export const BLOCK_TEMPLATES = {
     {
       type: "actions",
       elements: [
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: BUTTONS.TODAY,
+          },
+          style: "primary",
+          action_id: "today_date",
+        },
         {
           type: "button",
           text: {
