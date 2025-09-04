@@ -160,7 +160,7 @@ JSON_PATH = "mock-dir/app/data/lab.json"
 GITHUB_BRANCH = "develop"
 
 [[kv_namespaces]]
-binding = "THREADS_KV"
+binding = "SLACK2POSTLAB_THREADS"
 id = "your-kv-namespace-id"
 preview_id = "your-preview-kv-namespace-id"
 ```

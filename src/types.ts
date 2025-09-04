@@ -19,7 +19,7 @@ export type Bindings = {
   /** JSONメタデータファイルパス */
   JSON_PATH: string;
   /** KV Storage for thread management */
-  THREADS_KV: KVNamespace;
+  slack2postlab_threads: KVNamespace;
 };
 
 

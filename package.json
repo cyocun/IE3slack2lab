@@ -1,5 +1,5 @@
 {
-  "name": "slack-to-github-image-uploader",
+  "name": "slack2postlab",
   "version": "1.0.0",
   "description": "Cloudflare Worker for uploading Slack images to GitHub with metadata",
   "main": "dist/index.js",

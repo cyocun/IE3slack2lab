@@ -13,7 +13,7 @@ export async function storeThreadData(
   data: ThreadData,
   ttl: number = 86400, // 24時間後に自動削除
 ): Promise<void> {
-  await env.THREADS_KV.put(`thread:${threadTs}`, JSON.stringify(data), {
+  await env.slack2postlab_threads.put(`thread:${threadTs}`, JSON.stringify(data), {
     expirationTtl: ttl,
   });
 }
@@ -28,7 +28,7 @@ export async function getThreadData(
   env: Bindings,
   threadTs: string,
 ): Promise<ThreadData | null> {
-  const data = await env.THREADS_KV.get(`thread:${threadTs}`);
+  const data = await env.slack2postlab_threads.get(`thread:${threadTs}`);
   return data ? JSON.parse(data) : null;
 }
 
@@ -41,7 +41,7 @@ export async function deleteThreadData(
   env: Bindings,
   threadTs: string,
 ): Promise<void> {
-  await env.THREADS_KV.delete(`thread:${threadTs}`);
+  await env.slack2postlab_threads.delete(`thread:${threadTs}`);
 }
 
 /**
