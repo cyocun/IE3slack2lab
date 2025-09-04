@@ -1,12 +1,5 @@
 [
   {
-    "id": 31,
-    "image": "/mock-dir/public/images/2024/12/1756954170316_20240917.jpg",
-    "title": "æ°ååãªãªã¼ã¹",
-    "datetime": "2024-12-28",
-    "link": ""
-  },
-  {
     "id": 30,
     "image": "/mock-dir/public/images/2024/12/1756953988807_20240917.jpg",
     "title": "",
@@ -46,7 +39,7 @@
   {
     "id": 27,
     "image": "/images/lab/20250812.jpg",
-    "title": "Heatsink...ÃÂ°ÃÂÃÂÃÂ",
+    "title": "Heatsink...ÃÂÃÂ°ÃÂÃÂÃÂÃÂÃÂÃÂ",
     "datetime": "2025-08-12"
   },
   {
@@ -58,7 +51,7 @@
   {
     "id": 25,
     "image": "/images/lab/20250731.jpg",
-    "title": "1st anniversary!!ÃÂ°ÃÂÃÂÃÂ",
+    "title": "1st anniversary!!ÃÂÃÂ°ÃÂÃÂÃÂÃÂÃÂÃÂ",
     "datetime": "2025-07-31"
   },
   {
@@ -87,7 +80,7 @@
   {
     "id": 20,
     "image": "/images/lab/20250709.jpg",
-    "title": "MNC PartyÃÂ°ÃÂÃÂÃÂ",
+    "title": "MNC PartyÃÂÃÂ°ÃÂÃÂÃÂÃÂÃÂÃÂ",
     "datetime": "2025-07-09"
   },
   {
@@ -138,13 +131,13 @@
   {
     "id": 12,
     "image": "/images/lab/20250702-2.jpg",
-    "title": "Painting DeskÃÂ°ÃÂÃÂ§ÃÂÃÂ¢ÃÂÃÂÃÂ°ÃÂÃÂÃÂ¨",
+    "title": "Painting DeskÃÂÃÂ°ÃÂÃÂÃÂÃÂ§ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ°ÃÂÃÂÃÂÃÂÃÂÃÂ¨",
     "datetime": "2025-07-02"
   },
   {
     "id": 11,
     "image": "/images/lab/20250702-1.jpg",
-    "title": "Building DeskÃÂ°ÃÂÃÂÃÂ·",
+    "title": "Building DeskÃÂÃÂ°ÃÂÃÂÃÂÃÂÃÂÃÂ·",
     "datetime": "2025-07-02"
   },
   {
@@ -188,7 +181,7 @@
   {
     "id": 4,
     "image": "/images/lab/20250122.jpg",
-    "title": "HatsumodeÃÂ°ÃÂÃÂÃÂ",
+    "title": "HatsumodeÃÂÃÂ°ÃÂÃÂÃÂÃÂÃÂÃÂ",
     "datetime": "2025-01-22"
   },
   {
