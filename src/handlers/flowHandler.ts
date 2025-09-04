@@ -4,7 +4,7 @@
  */
 
 import type { Context } from "hono";
-import type { Bindings } from "../types";
+import type { Bindings, SlackEvent } from "../types";
 import { sendColoredSlackMessage, sendInteractiveMessage } from "../utils/slack";
 import { storeThreadData, getThreadData } from "../utils/kv";
 import { okResponse } from "../utils/response";
@@ -44,7 +44,7 @@ async function sendErrorMessage(
 export async function handleInitialImageUpload(
   _c: Context,
   env: Bindings,
-  event: any,
+  event: SlackEvent,
 ): Promise<Response> {
   const file = event?.files?.[0];
   if (!file || !file.mimetype?.startsWith("image/")) {
@@ -85,9 +85,13 @@ export async function handleInitialImageUpload(
 export async function handleFlowMessage(
   _c: Context,
   env: Bindings,
-  event: any,
+  event: SlackEvent,
 ): Promise<Response> {
   const threadTs = event.thread_ts;
+  if (!threadTs) {
+    // スレッド外には反応しない
+    return okResponse();
+    }
   const flowData = (await getThreadData(env, threadTs)) as FlowData;
 
   if (!flowData?.flowState) {

@@ -288,6 +288,43 @@ export async function sendInteractiveMessage(
 }
 
 /**
+ * インタラクティブメッセージ（サイドバー色付き）を送信
+ * 添付の color を使ってサイドバーに色を付ける（例: 'good' 'warning' 'danger'）
+ * @param token - Slackボットトークン
+ * @param channel - 対象チャンネル
+ * @param threadTs - スレッドタイムスタンプ
+ * @param blocks - Block Kit の配列
+ * @param color - サイドバーの色
+ */
+export async function sendInteractiveColoredMessage(
+  token: string,
+  channel: string,
+  threadTs: string | undefined,
+  blocks: any[],
+  color: 'good' | 'warning' | 'danger' | string,
+): Promise<void> {
+  await fetch(ENDPOINTS.SLACK_API.CHAT_POST_MESSAGE, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      channel,
+      thread_ts: threadTs,
+      text: "",
+      blocks,
+      attachments: [
+        {
+          color,
+          text: "",
+        },
+      ],
+    }),
+  });
+}
+
+/**
  * システムエラーをSlackに通知
  * @param token - Slackボットトークン
  * @param channel - 対象チャンネル（オプション）
@@ -319,4 +356,3 @@ export async function notifySystemError(
     console.error("Original error:", error);
   }
 }
-

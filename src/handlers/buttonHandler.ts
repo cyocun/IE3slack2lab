@@ -4,7 +4,7 @@
  */
 
 import type { Context } from "hono";
-import type { Bindings } from "../types";
+import type { Bindings, SlackBlockActionsPayload } from "../types";
 import { getThreadData, storeThreadData, deleteThreadData } from "../utils/kv";
 import { okResponse } from "../utils/response";
 import {
@@ -29,13 +29,17 @@ import { BLOCK_TEMPLATES } from "../ui/slackBlocks";
 export async function handleButtonInteraction(
   c: Context,
   env: Bindings,
-  payload: any,
+  payload: SlackBlockActionsPayload,
 ): Promise<Response> {
   try {
-    const action = payload.actions[0];
+    // 最初のアクションのみを対象（現在は単一アクション想定）
+    const action = payload.actions && payload.actions.length > 0 ? payload.actions[0] : undefined;
+    if (!action) {
+      return okResponse();
+    }
     const actionId = action.action_id;
     const channel = payload.channel.id;
-    const threadTs = payload.message.thread_ts || payload.message.ts;
+    const threadTs = (payload.message.thread_ts || payload.message.ts) as string;
 
     let flowData = (await getThreadData(env, threadTs)) as FlowData;
 

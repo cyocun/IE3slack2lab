@@ -1,17 +1,18 @@
 /**
- * Path utilities for converting between repo paths and site paths
+ * パス変換ユーティリティ
+ * レポジトリ内パスとサイト公開パス（JSONに保存されるパス）の相互変換を扱う
  */
 
 /**
- * Ensure a string ends with exactly one trailing slash
+ * 末尾に必ずスラッシュを1つだけ付与
  */
 export function withTrailingSlash(input: string): string {
   return input.endsWith('/') ? input : `${input}/`;
 }
 
 /**
- * Convert repo image base (e.g. "public/images/") + relative path (e.g. "YYYY/MM/file.webp")
- * to site path used in JSON (e.g. "/images/YYYY/MM/file.webp")
+ * レポジトリの画像ベースパス（例: "public/images/"）と相対パス（例: "YYYY/MM/file.webp"）から
+ * サイト公開パス（例: "/images/YYYY/MM/file.webp"）を生成
  */
 export function toSiteImagePath(repoImageBase: string, relativePath: string): string {
   const base = withTrailingSlash(repoImageBase).replace(/^public\//, '');
@@ -20,7 +21,7 @@ export function toSiteImagePath(repoImageBase: string, relativePath: string): st
 }
 
 /**
- * Convert site path (e.g. "/images/YYYY/MM/file.webp") to repo path (e.g. "public/images/YYYY/MM/file.webp")
+ * サイト公開パス（例: "/images/YYYY/MM/file.webp"）をレポジトリ内パス（例: "public/images/YYYY/MM/file.webp"）へ変換
  */
 export function toRepoImagePath(repoImageBase: string, sitePath: string): string {
   const base = withTrailingSlash(repoImageBase);
@@ -31,4 +32,3 @@ export function toRepoImagePath(repoImageBase: string, sitePath: string): string
   if (p.startsWith(noPublicBase)) return `public/${p}`;
   return `${base}${p}`;
 }
-

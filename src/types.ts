@@ -73,4 +73,17 @@ export interface SlackFile {
   url_private_download: string;
 }
 
-
+/**
+ * Slack Block Actions（ボタン操作）用の最小限ペイロード型
+ * 実際のSlackの型はさらに多いが、利用する範囲に限定して定義
+ */
+export interface SlackBlockActionsPayload {
+  type: 'block_actions';
+  user: { id: string };
+  channel: { id: string };
+  message: { ts: string; thread_ts?: string };
+  actions: Array<{
+    action_id: string;
+    value?: string;
+  }>;
+}

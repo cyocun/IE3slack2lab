@@ -7,7 +7,7 @@ import type { Bindings, LabEntry } from "../types";
 import type { FlowData } from "./flowStates";
 import { FLOW_STATE } from "./flowStates";
 import { buildSuccessMessage } from "./flowMessages";
-import { sendSlackMessage, sendColoredSlackMessage, getSlackFile, sanitizeFileName } from "../utils/slack";
+import { sendSlackMessage, sendColoredSlackMessage, getSlackFile, sanitizeFileName, sendInteractiveColoredMessage } from "../utils/slack";
 import { uploadToGitHub, getCurrentJsonData } from "../github";
 import { toSiteImagePath } from "../utils/paths";
 import { optimizeImage, changeExtensionToWebP } from "../utils/imageOptimizer";
@@ -186,58 +186,46 @@ async function sendSuccessMessage(
   );
 
   // 成功メッセージとボタンを一緒に送信（グリーンサイドバー付き）
-  const payload = {
-    channel: flowData.channel,
-    thread_ts: threadTs,
-    text: "",
-    blocks: [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: successText,
-        },
+  const blocks = [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: successText,
       },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: BUTTONS.EDIT_ENTRY,
-              emoji: true,
-            },
-            action_id: "edit_entry",
-            value: newId.toString(),
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: BUTTONS.DELETE_ENTRY,
-              emoji: true,
-            },
-            action_id: "delete_entry",
-            value: newId.toString(),
-          },
-        ],
-      },
-    ],
-    attachments: [
-      {
-        color: "good",
-        text: "",
-      },
-    ],
-  };
-
-  await fetch(ENDPOINTS.SLACK_API.CHAT_POST_MESSAGE, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.SLACK_BOT_TOKEN}`,
-      "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
-  });
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: BUTTONS.EDIT_ENTRY,
+            emoji: true,
+          },
+          action_id: "edit_entry",
+          value: newId.toString(),
+        },
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: BUTTONS.DELETE_ENTRY,
+            emoji: true,
+          },
+          action_id: "delete_entry",
+          value: newId.toString(),
+        },
+      ],
+    },
+  ];
+
+  await sendInteractiveColoredMessage(
+    env.SLACK_BOT_TOKEN,
+    flowData.channel,
+    threadTs,
+    blocks,
+    'good',
+  );
 }
