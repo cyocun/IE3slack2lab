@@ -11,7 +11,7 @@ import { sendSlackMessage, sendColoredSlackMessage, getSlackFile, sanitizeFileNa
 import { uploadToGitHub, getCurrentJsonData } from "../github";
 import { optimizeImage, changeExtensionToWebP } from "../utils/imageOptimizer";
 import { storeThreadData } from "../utils/kv";
-import { MESSAGES, ENDPOINTS, KV_CONFIG, LOG_MESSAGES, BACKGROUND_MESSAGES, BUTTONS } from "../constants";
+import { MESSAGES, ENDPOINTS, KV_CONFIG, LOG_MESSAGES, BACKGROUND_MESSAGES, BUTTONS, IMAGE_CONFIG } from "../constants";
 import { MessageUtils } from "../utils/messageFormatter";
 
 /**
@@ -41,7 +41,7 @@ export async function completeUpload(
   let newEntry: LabEntry | undefined;
   let newId: number | undefined;
   let fileName: string | undefined;
-  
+
   try {
     // 画像をダウンロード
     console.log(LOG_MESSAGES.PROCESSING.DOWNLOADING_IMAGE);
@@ -52,7 +52,7 @@ export async function completeUpload(
 
     // 画像を最適化（リサイズとWebP変換）
     console.log(LOG_MESSAGES.PROCESSING.OPTIMIZING_IMAGE);
-    const optimizedImageBuffer = await optimizeImage(imageBuffer, 1200, 1200);
+    const optimizedImageBuffer = await optimizeImage(imageBuffer, IMAGE_CONFIG.MAX_WIDTH, IMAGE_CONFIG.MAX_WIDTH);
 
     // ファイル名の生成（WebP拡張子に変更）
     const timestamp = Date.now();
@@ -83,7 +83,7 @@ export async function completeUpload(
       // 最新のデータを取得してマージ（アップロード直前に再度取得）
       const latestData = await getCurrentJsonData(env);
       const mergedData = [newEntry, ...latestData];
-      
+
       await uploadToGitHub(env, fullPath, optimizedImageBuffer, mergedData);
       uploadSucceeded = true;
       console.log(LOG_MESSAGES.SUCCESS.GITHUB_UPLOAD_COMPLETED);
@@ -116,21 +116,21 @@ export async function completeUpload(
         console.error(LOG_MESSAGES.ERROR.FALLBACK_MESSAGE_FAILED, fallbackError);
       }
     }
-    
+
     return new Response("OK");
   } catch (error) {
     console.error(LOG_MESSAGES.ERROR.UPLOAD_PROCESS_ERROR, error);
-    
+
     // エラーメッセージを構築
     let errorMessage = error instanceof Error ? error.message : MESSAGES.ERRORS.UNKNOWN_ERROR;
-    
+
     // 部分的な成功情報を含める
     if (uploadSucceeded && newId && fileName) {
       errorMessage = BACKGROUND_MESSAGES.PARTIAL_SUCCESS.replace('{id}', newId.toString()).replace('{fileName}', fileName).replace('{error}', errorMessage);
     } else {
       errorMessage = MessageUtils.formatUploadFailed(errorMessage);
     }
-    
+
     try {
       await sendColoredSlackMessage(
         env.SLACK_BOT_TOKEN,
@@ -142,7 +142,7 @@ export async function completeUpload(
     } catch (messageError) {
       console.error(LOG_MESSAGES.ERROR.SLACK_MESSAGE_FAILED, messageError);
     }
-    
+
     return new Response("OK");
   }
 }

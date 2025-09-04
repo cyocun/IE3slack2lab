@@ -49,6 +49,13 @@ export const VALIDATION = {
 } as const;
 
 /**
+ * 画像処理設定
+ */
+export const IMAGE_CONFIG = {
+  MAX_WIDTH: 800,
+} as const;
+
+/**
  * 外部APIエンドポイント
  */
 export const ENDPOINTS = {
