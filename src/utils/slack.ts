@@ -1,5 +1,5 @@
 import type { MessageMetadata, Bindings } from "../types";
-import { COMMANDS, VALIDATION, ENDPOINTS, BLOCK_TEMPLATES } from "../constants";
+import { VALIDATION, ENDPOINTS } from "../constants";
 
 /**
  * Slack Webhook署名を検証
@@ -79,31 +79,6 @@ export function parseMessage(text: string): MessageMetadata {
   return metadata;
 }
 
-/**
- * スレッド操作コマンドを検出
- * @param text - Slackメッセージテキスト
- * @returns 操作タイプまたはnull
- */
-export function detectThreadCommand(
-  text: string,
-): "delete" | "update" | "edit" | null {
-  const trimmedText = text.trim().toLowerCase();
-
-  if (trimmedText === "delete" || trimmedText === "削除") {
-    return "delete";
-  }
-
-  if (COMMANDS.EDIT.some((cmd) => trimmedText === cmd)) {
-    return "edit";
-  }
-
-  // 更新の場合は、date:, title:, link: のいずれかが含まれている
-  if (COMMANDS.UPDATE_PATTERNS.test(text.toLowerCase())) {
-    return "update";
-  }
-
-  return null;
-}
 
 /**
  * 日付入力を YYYY/MM/DD 形式に変換
@@ -264,15 +239,3 @@ export async function sendInteractiveMessage(
   });
 }
 
-/**
- * 編集用インタラクティブボタンを作成
- * @param entryId - エントリID
- * @param isPending - 保留中かどうか
- * @returns Slack Block Kit blocks
- */
-export function createEditButtons(
-  entryId: number | undefined,
-  isPending: boolean = false,
-): any[] {
-  return BLOCK_TEMPLATES.EDIT_BUTTONS(entryId, isPending);
-}

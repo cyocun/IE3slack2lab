@@ -104,50 +104,18 @@ link: https://ie3.jp
     "✏️ 修正が必要な場合は、このスレッドで **`edit`** または **`修正`** と入力してください。",
 } as const;
 
-export const FIELD_NAMES = {
-  DATE: "日付",
-  TITLE: "タイトル",
-  LINK: "リンク",
-} as const;
-
 export const BUTTONS = {
-  DATE: "📅 日付",
-  TITLE: "📝 タイトル",
-  LINK: "🔗 リンク",
-  DELETE: "🗑️削除",
-  CANCEL: "❌キャンセル",
   CANCEL_UPLOAD: "❌ 取り消し",
   SKIP: "スキップ",
   POST_NOW: "💾 投稿",
-  EDIT: "✏️ 修正",
-  CONFIRM_DELETE: "削除する",
 } as const;
 
 export const UI_TEXT = {
-  SECTIONS: {
-    EDIT_SELECTION: "🔧 *何を修正しますか？*",
-    DELETE_CONFIRM: "⚠️ *削除する？*\nID: {id}",
-  },
   FLOW: {
     TITLE_STATUS: (date: string, title: string) =>
       `日付: ${date} ✅\n` +
       `タイトル: ${title || "なし"} ✅\n\n` +
       `🔗 *リンクは？*\n「no」か投稿ボタンでスキップ`,
-  },
-  COMPLETION: {
-    SUMMARY: (
-      fileName: string,
-      id: number,
-      date: string,
-      title: string,
-      link: string,
-    ) =>
-      `完了！🎉\n\n` +
-      `📸 \`${fileName}\`\n` +
-      `🔢 ID: ${id}\n` +
-      `📅 ${date}\n` +
-      `📝 ${title || "なし"}\n` +
-      `🔗 ${link || "なし"}`,
   },
 } as const;
 
@@ -175,80 +143,6 @@ export const BLOCK_TEMPLATES = {
       ],
     },
   ],
-  EDIT_BUTTONS: (entryId: number | undefined, isPending: boolean = false) => {
-    const actionId = isPending ? "pending" : "edit";
-    return [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: UI_TEXT.SECTIONS.EDIT_SELECTION,
-        },
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: BUTTONS.DATE,
-              emoji: true,
-            },
-            style: "primary",
-            action_id: `${actionId}_date`,
-            value: entryId?.toString() || "pending",
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: BUTTONS.TITLE,
-              emoji: true,
-            },
-            action_id: `${actionId}_title`,
-            value: entryId?.toString() || "pending",
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: BUTTONS.LINK,
-              emoji: true,
-            },
-            action_id: `${actionId}_link`,
-            value: entryId?.toString() || "pending",
-          },
-        ],
-      },
-      {
-        type: "actions",
-        elements: [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: BUTTONS.DELETE,
-              emoji: true,
-            },
-            style: "danger",
-            action_id: `${actionId}_delete`,
-            value: entryId?.toString() || "pending",
-          },
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: BUTTONS.CANCEL,
-              emoji: true,
-            },
-            action_id: `${actionId}_cancel`,
-            value: entryId?.toString() || "pending",
-          },
-        ],
-      },
-    ];
-  },
 } as const;
 
 export const VALIDATION = {
@@ -261,17 +155,7 @@ export const VALIDATION = {
 export const ENDPOINTS = {
   SLACK_API: {
     CHAT_POST_MESSAGE: "https://slack.com/api/chat.postMessage",
-    VIEWS_OPEN: "https://slack.com/api/views.open",
   },
-  GITHUB_API: {
-    REPOS: "https://api.github.com/repos",
-  },
-} as const;
-
-export const COMMANDS = {
-  EDIT: ["edit", "修正"],
-  DELETE: ["delete", "削除"],
-  UPDATE_PATTERNS: /^(date|title|link):/m,
 } as const;
 
 /**
