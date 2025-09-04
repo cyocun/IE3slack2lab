@@ -13,12 +13,12 @@ import { GITHUB_BOT } from "../constants";
  * 現在のJSONデータを取得
  */
 export async function getCurrentJsonData(env: Bindings): Promise<LabEntry[]> {
-  const { GITHUB_TOKEN, JSON_PATH } = env;
+  const { GITHUB_TOKEN, JSON_PATH, GITHUB_BRANCH } = env;
   const urlBuilder = createGitHubUrlBuilder(env);
   
   try {
     const response = await fetch(
-      urlBuilder.contents(JSON_PATH),
+      urlBuilder.contents(JSON_PATH, GITHUB_BRANCH),
       { headers: createAuthHeaders(GITHUB_TOKEN) },
     );
 
@@ -110,11 +110,12 @@ export async function updateJsonOnGitHub(
   jsonData: LabEntry[],
   commitMessage: string,
 ): Promise<void> {
-  const { GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO, JSON_PATH } = env;
+  const { GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO, JSON_PATH, GITHUB_BRANCH } = env;
+  const urlBuilder = createGitHubUrlBuilder(env);
   
   // 現在のファイル情報を取得してSHA値を取得
   const currentFileResponse = await fetch(
-    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${JSON_PATH}`,
+    urlBuilder.contents(JSON_PATH, GITHUB_BRANCH),
     { headers: createAuthHeaders(GITHUB_TOKEN) },
   );
 
@@ -126,7 +127,7 @@ export async function updateJsonOnGitHub(
 
   // ファイルを更新
   const updateResponse = await fetch(
-    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${JSON_PATH}`,
+    urlBuilder.contents(JSON_PATH),
     {
       method: "PUT",
       headers: {

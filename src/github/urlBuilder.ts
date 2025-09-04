@@ -18,8 +18,9 @@ export class GitHubUrlBuilder {
   /**
    * Contents API URL (ファイルの読み書き用)
    */
-  contents(path: string): string {
-    return `${this.baseUrl}/contents/${path}`;
+  contents(path: string, branch?: string): string {
+    const url = `${this.baseUrl}/contents/${path}`;
+    return branch ? `${url}?ref=${branch}` : url;
   }
 
   /**
